@@ -8,6 +8,8 @@ class Config(object):
     DEBUG = False
     TESTING = False
     SAP_DB_SERVER_IP="192.168.11.249"
+    MSSQL_USER=env_config()["MSSQL_USER"]
+    MSSQL_PASS=env_config()["MSSQL_PASS"]
     SIS_DB_NAME="SBO_SIS"
     SUPPLIERS_INFO_FILE="mailing_list_fournisseurs_locaux.csv"
     SQLITE_TAGS_DB='database_sqlite.db'
@@ -18,13 +20,6 @@ class Config(object):
     APP_RUNNING_PORT=5000
     GOOGLE_CREDENTIALS="credentials.json"
     SHEET_ID="19JOyp4S78mfTKsAClaSWMDhppbrsbyHl58hvBd_1pMo"
-
-    @property
-    def MSSQL_USER(self):
-        return env_config()["MSSQL_USER"]
-    @property
-    def MSSQL_PASS():
-        return env_config()["MSSQL_PASS"]
 
 class ProductionConfig(Config):
     pass

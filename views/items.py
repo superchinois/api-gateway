@@ -43,7 +43,7 @@ def add_items_to_inventory_sheet():
     extract_fields=values[slice(6)]
     rows = list(map(lambda item: list(map(lambda f: item[f] if f in item else "",extract_fields))+[get_timestamp(),""],items))
     # [for testing] Append data to a fixed google sheet
-    sheet_id=get_working_sheet_id[current_app.config]
+    sheet_id=get_working_sheet_id(current_app.config)
     gc=get_google_sheet_client(current_app.config)
     workbook = gc.open_by_key(sheet_id)
     worksheet = workbook.get_worksheet(0)

@@ -77,7 +77,7 @@ def apply_formats_1(sheetname, worksheet, formats, sizes, rows, columns, datafra
   for v,f in zip(_values,_fmts):
       worksheet.conditional_format("B2:B{}".format(rows+1), 
                               {"type":'cell', "criteria":'=', "value":'"{}"'.format(v), "format":formats[f]})
-  correction_condition="AND(${sheetname}.$H2>0, ${sheetname}.$D2>${sheetname}.$F2)".format(sheetname=sheetname)
+  correction_condition="AND(${sheetname}.$I2>0, ${sheetname}.$D2>${sheetname}.$F2)".format(sheetname=sheetname)
   worksheet.conditional_format("C2:C{}".format(rows+1),
           {"type":'formula', "criteria": correction_condition, "format":formats["neutral"]})
   for (col, size, fmt) in sizes:

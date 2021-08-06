@@ -131,7 +131,7 @@ def historique_client(cardcode):
   
   if request.is_json:
     posted_data = request.get_json()
-    cardname = posted_data["cardname"]
+    #cardname = posted_data["cardname"]
     output = BytesIO()
     periodInWeeks = 10
     siDf = dao.getItemsBoughtByClient(cardcode, periodInWeeks)

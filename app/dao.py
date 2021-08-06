@@ -315,7 +315,8 @@ class SapDao:
     column_labels.sort(reverse=True)
     labels_count=len(column_labels)
     ind_fields_count=len(index_fields)
-    columns_renamed = {k:v for k,v in zip(build_label(values_fields, column_labels), column_labels)}
+    shortened_col_labels = list(map(lambda x:x[5:],column_labels))
+    columns_renamed = {k:v for k,v in zip(build_label(values_fields, column_labels), shortened_col_labels)}
     added_displayed_cols = ["occurences", "total","moy"]
     outputDf.rename(columns=columns_renamed, inplace=True)
     if NB_WEEKS<labels_count:
@@ -323,11 +324,13 @@ class SapDao:
       outputDf[last_weeks_label]=[reduce(lambda a,b:a+b, map(lambda x: 1 if row[x]>0 else 0, range(ind_fields_count+labels_count-NB_WEEKS,ind_fields_count+labels_count))) for row in outputDf.itertuples(index=False)]
       added_displayed_cols = [last_weeks_label] + added_displayed_cols
     outputDf["occurences"]=[reduce(lambda a,b:a+b, map(lambda x: 1 if row[x]>0 else 0, range(ind_fields_count,ind_fields_count+labels_count))) for row in outputDf.itertuples(index=False)]
-    outputDf["total"]=outputDf.loc[:,column_labels].sum(axis=1)
+    outputDf["total"]=outputDf.loc[:,shortened_col_labels].sum(axis=1)
     outputDf["moy"]=outputDf["total"]/outputDf["occurences"]
     outputDf = outputDf.sort_values(["occurences"], ascending=[0])
-    return pd.merge(outputDf.loc[:,index_fields+column_labels+added_displayed_cols], masterdata.loc[:,["itemcode", "categorie", "pcb_achat"]],
+    out_cols=[*index_fields, "pcb_achat",*shortened_col_labels,*added_displayed_cols,"categorie"]
+    merged = pd.merge(outputDf.loc[:,index_fields+shortened_col_labels+added_displayed_cols], masterdata.loc[:,["itemcode", "categorie", "pcb_achat"]],
       on=["itemcode"])
+    return merged.loc[:,out_cols]
 
   def getItemsOnSale(self, today):
     query="""select t0.itemcode, t0.cardcode, t0.price, t0.discount, t0.fromdate, t0.todate from dbo.spp1 t0 where t0.listnum='1'"""

@@ -1,8 +1,10 @@
 from flask import Blueprint
 from flask import jsonify, request, current_app
-from app.flask_helpers import build_response
+from app.flask_helpers import build_response, send_file_response
 from app.dao import dao
 from app.cache import fetch_master_itemlist
+from app.xlsxwriter_utils import to_size_col, build_formats_for
+import app.metrics_helpers as dluo_utils
 import os, re
 import datetime as dt
 import pytz
@@ -12,6 +14,8 @@ import json, gspread
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+from io import BytesIO
+
 items = Blueprint("items", __name__)
 
 
@@ -19,6 +23,7 @@ scope = ["https://spreadsheets.google.com/feeds"
         ,"https://www.googleapis.com/auth/spreadsheets"
         ,"https://www.googleapis.com/auth/drive.file"
         ,"https://www.googleapis.com/auth/drive"]
+DATE_FMT="%Y-%m-%d"
 
 def get_timestamp():
   UTC = pytz.utc
@@ -122,7 +127,7 @@ def items_routing():
 def sales_stats(itemcode):
   fromDateIso = request.args.get("from-date")
   movingAvg = request.args.get("moving-avg")
-  fromDate = dt.datetime.strptime(fromDateIso,"%Y-%m-%d").date()
+  fromDate = dt.datetime.strptime(fromDateIso,DATE_FMT).date()
   if movingAvg:
     result = dao.getSalesStatsforItem(itemcode, fromDate, int(movingAvg))
   else :
@@ -140,3 +145,81 @@ def discountPeriods(itemcode):
   result = dao.getDiscountedItemsFromDate(fromDateIso)
   item_result = result.query("itemcode=='{}'".format(itemcode)).loc[:,["itemcode","discount","fromdate","todate"]]
   return build_response(item_result.to_json(orient="records"))
+
+@items.route('/items/dluo', methods=['GET'])
+def compute_dluo_metrics():
+  two_yeas_in_days = 2*365
+  days_within_dluo = 250
+  delta_back=122
+  delta_back=dt.timedelta(days=delta_back)
+
+  toDate   = dt.date.today()
+  fromDate = toDate - delta_back
+  origin_reception=(toDate - dt.timedelta(days=two_yeas_in_days)).strftime(DATE_FMT)
+  masterdata = fetch_master_itemlist()
+  receptions = dao.getReceptionsMarchandise(origin_reception)
+  receptions_vector = dluo_utils.compute_receptions_vector(masterdata, receptions)
+
+  itemcodes = list(map(lambda x:x[0], dluo_utils.select_items(receptions_vector, days_within_dluo)))
+  sales_df = dao.compute_sales_for_itemcodes_betweenDates(itemcodes, fromDate, toDate)
+  dluos = dluo_utils.compute_forecasts(masterdata,itemcodes)(sales_df)
+  dluo_utils.add_metrics(dluos, receptions_vector)
+  displayed_order=[
+    "dluo1"
+    ,"itemcode"
+    ,"itemname"
+    ,"onhand"
+    ,"proche"
+    ,"lot_count"
+    ,"a_terme"
+    ,"ecoulmt"
+    ,"countdown"
+    ,"a"
+    ,"r2"
+    ,"vmm"
+    ,"filtre"
+    #,"revient"
+    ,"recept"
+  ]
+  def _apply_formats(sheetname, worksheet, formats, sizes, rows, columns, dataframe=None):
+    thresholds = [0,0.3,0.7,1]
+    fmt=["good","neutral","bad"]
+    for i in range(3):
+        worksheet.conditional_format("H2:H{}".format(rows+1), 
+                          {"type":'cell', "criteria":'between', 'minimum':  thresholds[i],
+                                       'maximum':  thresholds[i+1],"format":formats[fmt[i]]})
+    worksheet.conditional_format("G2:G{}".format(rows+1), 
+                              {"type":'cell', "criteria":'>', "value":'1', "format":formats["error"]})
+    for (col, size, fmt) in sizes:
+        worksheet.set_column(col, size, formats[fmt])
+
+  def _add_filters(df):
+      df["filtre"] = df.apply(lambda row: 1 if row.ecoulmt<row.proche and row.countdown>0 else 0,axis=1)
+      
+  def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
+      r, c = dataframe.shape # number of rows and columns
+      dataframe.to_excel(writer, sheetname)
+      # Get the xlsxwriter workbook and worksheet objects.
+      workbook  = writer.book
+      formats = build_formats_for(workbook)
+      worksheet = writer.sheets[sheetname]
+      worksheet.freeze_panes(1,4)
+      worksheet.autofilter(0,0,r,c)
+      apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
+
+  _add_filters(dluos) 
+  outDf = dluos[dluos.onhand>0].loc[:,displayed_order]
+
+  output = BytesIO()
+  with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    resize_cols = [
+        ["B:B", to_size_col(1), "date1"]
+        ,["D:D", to_size_col(6), "no_format"]
+        ,["H:H", to_size_col(0.7), "percents"]
+        ,["M:M", to_size_col(0.7), "number"]
+        ,["N:N", to_size_col(0.7), "no_format"]
+        ,["O:O", to_size_col(6), "no_format"]
+    ]
+    _output_excel(writer, "Sheet1", outDf.sort_values(by=["dluo1"]), resize_cols, _apply_formats)
+  return send_file_response(output, f"dluos_{toDate.strftime(DATE_FMT)}.xlsx")
+

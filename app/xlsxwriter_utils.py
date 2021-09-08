@@ -91,13 +91,14 @@ def build_formats_for(workbook):
   format1 = workbook.add_format({'num_format': '#,##0.00'})
   format2 = workbook.add_format({'num_format': '0%'})
   format3 = workbook.add_format({'num_format': '#,##0.00 [$€-40C];[RED]-#,##0.00 [$€-40C]'})
+  error_fmt = workbook.add_format({'bg_color': '#cc0000','font_color': '#ffffff'})
   neutral_format=workbook.add_format({'bg_color': '#ffffcc','font_color': '#996600'})
   warning_format=workbook.add_format({'bg_color':'#f2cbf8','font_color': '#7c007c'})
   bad_format=workbook.add_format({'bg_color': '#ffcccc','font_color': '#cc0000'})
   good_format=workbook.add_format({'bg_color': '#ccffcc','font_color': '#006600'})
   date_format1 = workbook.add_format({'num_format':'dd-mmm'})
-  
-  fmt_array=[None, format1, format2, format3, neutral_format, warning_format, bad_format, good_format, date_format1]
-  fmt_names=["no_format","number", "percents", "currency", "neutral", "warning", "bad", "good", "date1"]
+
+  fmt_array=[None, format1, format2, format3, neutral_format, warning_format, bad_format, good_format, error_fmt,date_format1]
+  fmt_names=["no_format","number", "percents", "currency", "neutral", "warning", "bad", "good", "error", "date1"]
   formats={k:v for k,v in zip(fmt_names, fmt_array)}
   return formats

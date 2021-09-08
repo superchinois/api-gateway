@@ -33,10 +33,6 @@ def querybuilder(params):
                 query_tpl=" ".join([query_tpl, keywords[k].format(params[k])])
     return query_tpl
 
-def reduit_acc(x,y,acc):
-    delta=x-y
-    acc.append(delta)
-    return delta
 def reduit(x,y):
     if x-y>0:
         return x-y
@@ -64,3 +60,24 @@ def compute_months_dict_betweenDates(fromDate, toDate):
             months[year]=list(range(1,13))
         months[toYear]=list(range(1, toDate.month+1))
     return months
+
+def build_dict(keys):
+    def with_values(values):
+        return {k:v for (k,v) in zip(keys, values)}
+    return with_values
+def build_months_list(months):
+    return ",".join(["'{}'".format(x) for x in months])
+
+def build_period(year, months):
+    # year data
+    keys = ["year", "months"]
+    aPeriod=build_dict(keys)
+    return aPeriod([year, build_months_list(months)])
+
+def toJoinedString(separator):
+    def build_string(items_list):
+        return separator.join(["'{}'".format(x) for x in items_list])
+    return build_string
+
+def build_date(y,m,d):
+    return dt.datetime(y,m,d).date()

@@ -9,7 +9,7 @@ import json
 import sqlite3
 import itertools
 import numpy as np
-from app.query_utils import compute_months_dict_betweenDates, build_query_cash, convertSerieToDataArray
+from app.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
 
 
 
@@ -299,6 +299,35 @@ class SapDao:
     concatenatedDf.sort_values(by=["docdate", "doctime"], inplace=True)
 
     return output, concatenatedDf
+
+  def getReceptionsMarchandise(self, fromDate):
+      fields = ["_pdn1.itemcode"
+                #,"_pdn1.linenum"
+                ,"_opdn.docdate"
+                ,"_opdn.docnum"
+                ,"_opdn.numatcard"
+                ,"_opdn.cardcode"
+                ,"_opdn.cardname"
+                ,"_opdn.comments"
+                ,"_pdn1.quantity"
+                ,"_pdn1.u_dluo"
+                ,"_pdn1.dscription"
+                ,"_itm1.price"
+                ,"_pdn1.serialnum"]
+      entree_march_params={
+      'fields':fields,
+      'tables':"pdn1 _pdn1",
+      'join':{
+        "opdn _opdn":(1,["_opdn.docentry=_pdn1.docentry", "_opdn.docdate>='{}'".format(fromDate)]),
+        "oitm _oitm":(2,["_pdn1.itemcode=_oitm.itemcode"]),
+        "itm1 _itm1":(3,["_pdn1.itemcode=_itm1.itemcode","_itm1.pricelist='4'"]),
+        },
+      'orderby':"_pdn1.itemcode"
+      }
+      q=querybuilder(entree_march_params)
+      df=self.execute_query(q)
+      df["comments"] = [self.normalize_comments(row.comments) for row in df.itertuples()]
+      return df
 
   def getItemsBoughtByClient(self, cardcode, periodInWeeks):
     df = self.execute_query(items_by_client(cardcode, periodInWeeks))

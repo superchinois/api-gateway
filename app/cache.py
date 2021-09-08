@@ -7,7 +7,7 @@ import datetime as dt
 
 cache = Cache(config={'CACHE_TYPE': 'simple'})
 
-@cache.cached(timeout=3600)
+@cache.cached(timeout=1800)
 def fetch_master_itemlist():
   result = dao.getMasterDataDf()
   return result

@@ -154,8 +154,8 @@ def compute_dluo_metrics():
   delta_back=dt.timedelta(days=delta_back)
 
   toDate   = dt.date.today()
-  fromDate = toDate - delta_back
-  origin_reception=(toDate - dt.timedelta(days=two_yeas_in_days)).strftime(DATE_FMT)
+  fromDate = (toDate - delta_back).replace(day=1)
+  origin_reception=(toDate - dt.timedelta(days=two_yeas_in_days)).replace(month=1, day=1).strftime(DATE_FMT)
   masterdata = fetch_master_itemlist()
   receptions = dao.getReceptionsMarchandise(origin_reception)
   receptions_vector = dluo_utils.compute_receptions_vector(masterdata, receptions)

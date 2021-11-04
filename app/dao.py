@@ -137,7 +137,7 @@ class SapDao:
 
   def getDocLines(self, docnum):
     lines = self.execute_query("""select t0.linenum, t0.itemcode, t0.dscription, t0.serialnum, t0.u_dluo,t0.price, 
-      t0.factor1, t0.factor2, t0.quantity 
+      t0.factor1, t0.factor2, t0.quantity, t0.visorder
       from dbo.por1 t0 join dbo.opor t1 on t1.docentry=t0.docentry and t1.docnum='{}'""".format(docnum))
     lines.fillna("", inplace=True)
     return pd.DataFrame(lines.to_records(index=False))
@@ -297,8 +297,9 @@ class SapDao:
       pivotDf["solde"]=pivotDf.apply(lambda row: row.entree, axis=1)
     output = pivotDf.sort_values(["entree", "itemname"], ascending=[0,1])
     concatenatedDf.sort_values(by=["docdate", "doctime"], inplace=True)
-
-    return output, concatenatedDf
+    forced_entries=pd.pivot_table(concatenatedDf.query("u_name=='gilette'"), index=["itemcode","itemname"], values=["quantity"], aggfunc='count', fill_value=0)
+    cashierSiDf = pd.DataFrame(forced_entries.to_records()).sort_values(by=["quantity"], ascending=False)
+    return output, concatenatedDf, cashierSiDf
 
   def getReceptionsMarchandise(self, fromDate):
       fields = ["_pdn1.itemcode"

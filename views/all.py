@@ -100,11 +100,12 @@ def stock_movements():
   monday=dt.datetime.strptime("{}-W{}".format(now.year,now.isocalendar()[1])+'-1',"%Y-W%W-%w")
   output = BytesIO()
   dateFrom = monday.strftime("%Y-%m-%d")
-  siDf, rawSiDf = dao.getEntreeSortiesMarchandise(dateFrom)
+  siDf, rawSiDf, cashierSiDf = dao.getEntreeSortiesMarchandise(dateFrom)
   # Create a Pandas Excel writer using XlsxWriter as the engine.
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_formats_1)
     output_excel(writer, "Sheet2", rawSiDf, [["E:E",63, "no_format"] ,["F:F",to_size_col(1.55), "date1"]],apply_formats_1)
+    output_excel(writer, "Sheet3", cashierSiDf, [["C:C",63, "no_format"]],lambda: pass)
   return send_file_response(output, f"si_{dateFrom}.xlsx")
 
 @bp.route('/historique/<string:cardcode>', methods=["POST"])

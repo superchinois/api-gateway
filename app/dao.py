@@ -297,7 +297,7 @@ class SapDao:
       pivotDf["solde"]=pivotDf.apply(lambda row: row.entree, axis=1)
     output = pivotDf.sort_values(["entree", "itemname"], ascending=[0,1])
     concatenatedDf.sort_values(by=["docdate", "doctime"], inplace=True)
-    forced_entries=pd.pivot_table(concatenatedDf.query("u_name=='gilette'"), index=["itemcode","itemname"], values=["quantity"], aggfunc='count', fill_value=0)
+    forced_entries=pd.pivot_table(concatenatedDf.query("u_name=='gilette' and type=='entree'"), index=["itemcode","itemname"], values=["quantity"], aggfunc='count', fill_value=0)
     cashierSiDf = pd.DataFrame(forced_entries.to_records()).sort_values(by=["quantity"], ascending=False)
     return output, concatenatedDf, cashierSiDf
 

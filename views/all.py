@@ -99,11 +99,16 @@ def output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
 
 @bp.route('/mouvements-forces', methods=["GET"])
 def stock_movements():
-  now = dt.datetime.now()
-  monday=dt.datetime.strptime("{}-W{}".format(now.year,now.isocalendar()[1])+'-1',"%Y-W%W-%w")
-  output = BytesIO()
-  dateFrom = monday.strftime("%Y-%m-%d")
+  date_from = request.args.get("date-from")
+  if date_from :
+    dateFrom=dt.datetime.strptime(date_from, "%Y-%m-%d")
+  else:
+    now = dt.datetime.now()
+    monday=dt.datetime.strptime("{}-W{}".format(now.year,now.isocalendar()[1])+'-1',"%Y-W%W-%w")
+    dateFrom = monday.strftime("%Y-%m-%d")
+
   siDf, rawSiDf, cashierSiDf = dao.getEntreeSortiesMarchandise(dateFrom)
+  output = BytesIO()
   # Create a Pandas Excel writer using XlsxWriter as the engine.
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_formats_1)

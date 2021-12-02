@@ -9,7 +9,8 @@ def create_app(app_name=PKG_NAME, **kwargs):
   from views.tags import tags
   from views.suppliers import suppliers
   from views.items import items
-  routes=[bp, tags, suppliers, items]
+  from views.arrival import arrival
+  routes=[bp, tags, suppliers, items, arrival]
   for route in routes :
     app.register_blueprint(route)
   return app

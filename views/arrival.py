@@ -44,7 +44,8 @@ def getNextArrivalItems():
   cde_query = """select t0.itemcode, t0.dscription, t0.quantity from dbo.por1 t0 
   join dbo.opor t1 on t1.docentry=t0.docentry and t1.docentry in ({})"""
   eta_like_date = df_import["ETA"].str.contains('[0-9]{4}-[0-9]{2}-[0-9]{2}', regex=True)
-  filtered_df = df_import.query("SAP != 0 and (DEPOTAGE==0 or DEPOTAGE.str.contains('BAE'))", engine="python").loc[eta_like_date]
+  #or DEPOTAGE.str.contains('BAE')
+  filtered_df = df_import.query("SAP != 0 and (DEPOTAGE==0)", engine="python").loc[eta_like_date]
   docentries = []
   itemsDfs=[]
   for s in filtered_df.itertuples():

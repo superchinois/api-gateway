@@ -1,3 +1,5 @@
+import itertools
+
 def build_query_cash(itemcodes, year, months):
     sql_params={
     'fields':["t0.docdate","t1.itemcode","sum(t1.quantity) as quantity","sum(t1.linetotal) as linetotal", "t1.targettype"],
@@ -10,6 +12,21 @@ def build_query_cash(itemcodes, year, months):
     months_string="("+",".join(["'{}'".format(str(m)) for m in months])+")"
     stmt=querybuilder(sql_params).format_map({'itemcodes':itemcodes, 'year':year,'months':months_string})
     return stmt
+
+def build_query_over(period):
+    sql_params={
+    'fields':["year(t1.docdate) as year","month(t1.docdate) as month","datepart(wk, t1.docdate) as week"
+             ,"t1.docdate", "t1.doctime", "t0.itemcode", "t0.dscription as itemname", "t0.quantity", "t1.cardname"
+             ,"t0.linetotal", "t1.docnum"],
+    'tables':"dbo.inv1 t0",
+    'where':["t0.itemcode in ({itemcodes})"],
+    'join':{"dbo.oinv t1":('1',["t0.docentry=t1.docentry","year(t1.docdate)='{year}'","month(t1.docdate) in ({months})"]),
+             "dbo.ocrd _ocrd":('2', ["_ocrd.cardcode=t1.cardcode","(_ocrd.qrygroup1='Y' or _ocrd.qrygroup18='Y')"])},
+    }
+    def format_with_itemcodes(itemcodes):
+        stmt=querybuilder(sql_params).format_map({'itemcodes':itemcodes, 'year':period['year'],'months':period['months']})
+        return stmt
+    return format_with_itemcodes
 
 def querybuilder(params):
     keys=['fields', 'tables', 'join','leftjoin', 'where', 'groupby','orderby']
@@ -81,3 +98,9 @@ def toJoinedString(separator):
 
 def build_date(y,m,d):
     return dt.datetime(y,m,d).date()
+
+def build_pivot_labels(fields, years, months):
+    return ["('sum', '{}', {}, {})".format(x[0], x[1], x[2])for x in itertools.product(fields, years, months)]
+
+def get_first_values(dataframe, column):
+    return dataframe[column].values.tolist()[0]

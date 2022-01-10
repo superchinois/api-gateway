@@ -10,7 +10,7 @@ import sqlite3
 import itertools
 import numpy as np
 from app.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
-
+from app.query_utils import build_query_over, build_period, build_pivot_labels
 
 
 master_data_query="""select t0.itemcode, t0.itemname,t0.codebars,t7.Price as vente, t8.rate, 
@@ -421,6 +421,42 @@ class SapDao:
     columns_renamed={"('sum', 'quantity')":'quantity'}
     outputDf.rename(columns=columns_renamed, inplace=True)
     return outputDf
+
+  def compute_sales_for_itemcodes(self, itemcodes, periods):
+    queries = [build_query_over(build_period(y,m))(itemcodes) for (y,m) in periods.items()]
+    df=pd.concat(map(lambda q: self.execute_query(q),queries))
+    index_fields = ["cardname"]
+    values_fields = ['quantity']
+    columns_fields = ['year','month']
+    pvtable = pd.pivot_table(df, index=index_fields,
+       values=values_fields,
+       columns=columns_fields,
+       aggfunc=[np.sum],
+       fill_value=0)
+    df1 = pd.DataFrame(pvtable.to_records())
+    date_labels=[]
+    for (y,m) in periods.items():
+        date_labels = date_labels + ["{}-{}".format(str(x[0]),str(x[1]).zfill(2)) for x in itertools.product([y], m)]
+
+    quantity_labels = []
+    for (y,m) in periods.items():
+        quantity_labels = quantity_labels + build_pivot_labels(["quantity"], [y], m)
+
+    df1.rename(columns={k:v for (k,v) in zip(quantity_labels, date_labels)},inplace=True)
+    df_columns = df1.columns.values.tolist() 
+    for date in date_labels:
+      if date not in df_columns:
+        df1[date]=0
+        
+    dates = df1.columns.tolist()[1:]
+    dates.sort(reverse=True)
+    df1["total"]=df1.loc[:,date_labels].sum(axis=1)
+    cols = ["total"]+date_labels
+    ALL_CLIENTS_LABEL = " TOTAL CLIENTS"
+    result_df = df1.append(pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols), ignore_index=True)
+    result_df=result_df.sort_values(["total", "cardname"], ascending=[0,1])
+    result_df=result_df.sort_values(["total", "cardname"], ascending=[0,1])
+    return result_df.loc[:, ["cardname","total"]+dates]
 
 dao = SapDao()
 

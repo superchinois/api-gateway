@@ -4,6 +4,7 @@ from app.flask_helpers import build_response, send_file_response
 from app.dao import dao
 from app.cache import fetch_master_itemlist
 from app.xlsxwriter_utils import to_size_col, build_formats_for
+from app.query_utils import get_first_values, compute_months_dict_betweenDates, toJoinedString
 import app.metrics_helpers as dluo_utils
 import os, re
 import datetime as dt
@@ -223,3 +224,38 @@ def compute_dluo_metrics():
     _output_excel(writer, "Sheet1", outDf.sort_values(by=["dluo1"]), resize_cols, _apply_formats)
   return send_file_response(output, f"dluos_{toDate.strftime(DATE_FMT)}.xlsx")
 
+@items.route('/items/historique/<string:itemcode>', methods=['GET'])
+def compute_item_sales(itemcode):
+  def _apply_formats(sheetname, worksheet, formats, sizes, rows, columns, dataframe=None):
+    for (col, size, fmt) in sizes:
+      worksheet.set_column(col, size, formats[fmt])
+  def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
+    r, c = dataframe.shape # number of rows and columns
+    dataframe.to_excel(writer, sheetname, index=False)
+    # Get the xlsxwriter workbook and worksheet objects.
+    workbook  = writer.book
+    formats = build_formats_for(workbook)
+    worksheet = writer.sheets[sheetname]
+    worksheet.freeze_panes(1,1)
+    worksheet.autofilter(0,0,r,c)
+    apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
+  masterdata = fetch_master_itemlist()
+  itemname = get_first_values(masterdata.query("itemcode=='{}'".format(itemcode)), "itemname")
+  delta_back=122
+  delta_back=dt.timedelta(days=delta_back)
+  toDate   = dt.date.today()
+  fromDate = (toDate - delta_back).replace(day=1)
+  periods = compute_months_dict_betweenDates(fromDate,toDate)
+  commaJoined=toJoinedString(",")
+  itemcodes = commaJoined([itemcode])
+  histo_item = dao.compute_sales_for_itemcodes(itemcodes, periods)
+  output = BytesIO()
+  with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    resize_cols = [
+    ["A:A", to_size_col(3.95), "no_format"]
+    ,["B:B", to_size_col(0.8), "no_format"]
+    ,["C:G", to_size_col(1), "no_format"]
+    ]
+    _output_excel(writer, "Sheet1", histo_item, resize_cols, _apply_formats)
+
+  return send_file_response(output, f"{itemname}_{toDate.strftime(DATE_FMT)}.xlsx")

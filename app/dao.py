@@ -447,16 +447,17 @@ class SapDao:
     for date in date_labels:
       if date not in df_columns:
         df1[date]=0
-        
+
     dates = df1.columns.tolist()[1:]
     dates.sort(reverse=True)
     df1["total"]=df1.loc[:,date_labels].sum(axis=1)
     cols = ["total"]+date_labels
     ALL_CLIENTS_LABEL = " TOTAL CLIENTS"
     result_df = df1.append(pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols), ignore_index=True)
-    result_df=result_df.sort_values(["total", "cardname"], ascending=[0,1])
-    result_df=result_df.sort_values(["total", "cardname"], ascending=[0,1])
-    return result_df.loc[:, ["cardname","total"]+dates]
+    result_df["freq"]=result_df.loc[:,date_labels].gt(0).sum(axis=1)
+    result_df=result_df.sort_values(["freq","total"], ascending=[0,0])
+    output_cols = ["cardname","total","freq"]+dates
+    return result_df.loc[:, output_cols]
 
 dao = SapDao()
 

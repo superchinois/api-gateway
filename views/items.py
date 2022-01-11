@@ -253,8 +253,8 @@ def compute_item_sales(itemcode):
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     resize_cols = [
     ["A:A", to_size_col(3.95), "no_format"]
-    ,["B:B", to_size_col(0.8), "no_format"]
-    ,["C:G", to_size_col(1), "no_format"]
+    ,["B:C", to_size_col(0.8), "no_format"]
+    ,["D:H", to_size_col(1), "no_format"]
     ]
     _output_excel(writer, "Sheet1", histo_item, resize_cols, _apply_formats)
 

@@ -255,6 +255,7 @@ def compute_item_sales(itemcode):
     ["A:A", to_size_col(3.95), "no_format"]
     ,["B:C", to_size_col(0.8), "no_format"]
     ,["D:H", to_size_col(1), "no_format"]
+    ,["J:J", to_size_col(1.3), "percents"]
     ]
     _output_excel(writer, "Sheet1", histo_item, resize_cols, _apply_formats)
 

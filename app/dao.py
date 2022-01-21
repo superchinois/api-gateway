@@ -455,8 +455,12 @@ class SapDao:
     ALL_CLIENTS_LABEL = " TOTAL CLIENTS"
     result_df = df1.append(pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols), ignore_index=True)
     result_df["freq"]=result_df.loc[:,date_labels].gt(0).sum(axis=1)
+    past_months=dates[1:]
+    result_df["moy"]=result_df.loc[:,past_months].replace(0, np.nan).mean(axis=1, skipna=True)
+    result_df["remplis."]=result_df[dates[0]]/result_df["moy"]
     result_df=result_df.sort_values(["freq","total"], ascending=[0,0])
-    output_cols = ["cardname","total","freq"]+dates
+
+    output_cols = ["cardname","total","freq"]+dates+["moy", "remplis."]
     return result_df.loc[:, output_cols]
 
 dao = SapDao()

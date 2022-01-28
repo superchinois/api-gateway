@@ -30,7 +30,14 @@ def items_by_client(cardcode, periodInWeeks):
   t0.quantity as quantity, t1.docdate, t2.onhand from dbo.inv1 t0 
   join dbo.oinv t1 on t1.docentry=t0.docentry and abs(datediff(wk, getdate(), t1.docdate))<={period}
   and t1.cardcode='{client}'
-  join dbo.oitm t2 on t2.itemcode=t0.itemcode"""
+  join dbo.oitm t2 on t2.itemcode=t0.itemcode
+  union all
+  select year(t1.docdate) as year, month(t1.docdate) as month, datepart(wk, t1.docdate) as week,t0.itemcode, t0.dscription, 
+  -t0.quantity as quantity, t1.docdate, t2.onhand from dbo.rin1 t0 
+  join dbo.orin t1 on t1.docentry=t0.docentry and abs(datediff(wk, getdate(), t1.docdate))<={period}
+  and t1.cardcode='{client}'
+  join dbo.oitm t2 on t2.itemcode=t0.itemcode
+  """
   return qry.format(client=cardcode, period=periodInWeeks)
 
 def stock_query(db, dateFrom):
@@ -382,7 +389,14 @@ class SapDao:
     for qry in queries:
         result_df.append(self.execute_query(qry))
     df=pd.concat(result_df)
-    return df.query("targettype == -1")
+    index_fields=["docdate", "itemcode", "targettype"]
+    values_fields=["quantity", "linetotal"]
+    columns_fields=[]
+    pivotDf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+    outputDf=pd.DataFrame(pivotDf.to_records())
+    columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
+    outputDf.rename(columns=columns_renamed, inplace=True)
+    return outputDf.query("targettype == -1")
 
   def getSalesStatsforItem(self, itemcode, fromDate, movingAvg=0):
     itemcodes=[itemcode]

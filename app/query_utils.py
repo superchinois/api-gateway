@@ -1,7 +1,7 @@
 import itertools
 
 def build_query_cash(itemcodes, year, months):
-    sql_params={
+    sql_params_oinv={
     'fields':["t0.docdate","t1.itemcode","sum(t1.quantity) as quantity","sum(t1.linetotal) as linetotal", "t1.targettype"],
     'tables':"dbo.inv1 t1",
     'where':["t1.itemcode in ({itemcodes})"],
@@ -9,12 +9,21 @@ def build_query_cash(itemcodes, year, months):
              "ocrd _ocrd":('2', ["_ocrd.cardcode=t0.cardcode","(_ocrd.qrygroup1='Y' or _ocrd.qrygroup18='Y')"])},
     'groupby':"t0.docdate, t1.itemcode ,t1.targettype",
     }
+    sql_params_orin={
+    'fields':["t0.docdate","t1.itemcode","-sum(t1.quantity) as quantity","-sum(t1.linetotal) as linetotal", "t1.targettype"],
+    'tables':"dbo.rin1 t1",
+    'where':["t1.itemcode in ({itemcodes})"],
+    'join':{"dbo.orin t0":('1',["t0.docentry=t1.docentry","year(t0.docdate)='{year}'","month(t0.docdate) in {months}"]),
+             "ocrd _ocrd":('2', ["_ocrd.cardcode=t0.cardcode","(_ocrd.qrygroup1='Y' or _ocrd.qrygroup18='Y')"])},
+    'groupby':"t0.docdate, t1.itemcode ,t1.targettype",
+    }
     months_string="("+",".join(["'{}'".format(str(m)) for m in months])+")"
-    stmt=querybuilder(sql_params).format_map({'itemcodes':itemcodes, 'year':year,'months':months_string})
-    return stmt
+    stmt1=querybuilder(sql_params_oinv).format_map({'itemcodes':itemcodes, 'year':year,'months':months_string})
+    stmt2=querybuilder(sql_params_orin).format_map({'itemcodes':itemcodes, 'year':year,'months':months_string})
+    return " union all ".join([stmt1, stmt2])
 
 def build_query_over(period):
-    sql_params={
+    sql_params_oinv={
     'fields':["year(t1.docdate) as year","month(t1.docdate) as month","datepart(wk, t1.docdate) as week"
              ,"t1.docdate", "t1.doctime", "t0.itemcode", "t0.dscription as itemname", "t0.quantity", "t1.cardname"
              ,"t0.linetotal", "t1.docnum"],
@@ -23,9 +32,19 @@ def build_query_over(period):
     'join':{"dbo.oinv t1":('1',["t0.docentry=t1.docentry","year(t1.docdate)='{year}'","month(t1.docdate) in ({months})"]),
              "dbo.ocrd _ocrd":('2', ["_ocrd.cardcode=t1.cardcode","(_ocrd.qrygroup1='Y' or _ocrd.qrygroup18='Y')"])},
     }
+    sql_params_orin={
+    'fields':["year(t1.docdate) as year","month(t1.docdate) as month","datepart(wk, t1.docdate) as week"
+             ,"t1.docdate", "t1.doctime", "t0.itemcode", "t0.dscription as itemname", "-t0.quantity as quantity", "t1.cardname"
+             ,"-t0.linetotal as linetotal", "t1.docnum"],
+    'tables':"dbo.rin1 t0",
+    'where':["t0.itemcode in ({itemcodes})"],
+    'join':{"dbo.orin t1":('1',["t0.docentry=t1.docentry","year(t1.docdate)='{year}'","month(t1.docdate) in ({months})"]),
+             "dbo.ocrd _ocrd":('2', ["_ocrd.cardcode=t1.cardcode","(_ocrd.qrygroup1='Y' or _ocrd.qrygroup18='Y')"])},
+    }
     def format_with_itemcodes(itemcodes):
-        stmt=querybuilder(sql_params).format_map({'itemcodes':itemcodes, 'year':period['year'],'months':period['months']})
-        return stmt
+        stmt1=querybuilder(sql_params_oinv).format_map({'itemcodes':itemcodes, 'year':period['year'],'months':period['months']})
+        stmt2=querybuilder(sql_params_orin).format_map({'itemcodes':itemcodes, 'year':period['year'],'months':period['months']})
+        return " union all ".join([stmt1, stmt2])
     return format_with_itemcodes
 
 def querybuilder(params):

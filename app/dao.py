@@ -41,7 +41,7 @@ def items_by_client(cardcode, periodInWeeks):
   return qry.format(client=cardcode, period=periodInWeeks)
 
 def stock_query(db, dateFrom):
-  stock_qry="""select '{type}' as type, t1.docnum, t0.itemcode, t2.itemname,
+  stock_qry="""select '{type}' as type, t1.docnum, t0.itemcode, t2.itemname,t0.dscription,
      t1.docdate, t1.doctime, t3.cardname, t2.onhand, {operator}t0.quantity as quantity, t1.comments, t4.u_name 
      from dbo.{table_ligne} t0 
      join dbo.{table} t1 on t1.DocEntry=t0.DocEntry and {date_condition}
@@ -281,7 +281,7 @@ class SapDao:
     {"type":"entr_march", "table":"OPDN", "table_ligne":"PDN1", "operator":""},
     {"type":"retour", "table":"ORPD", "table_ligne":"RPD1", "operator":"-"}
     ]
-    index_fields=["itemcode", "itemname", "onhand"]
+    index_fields=["itemcode", "dscription", "onhand"]
     values_fields = ["quantity"]
     columns_fields = ["type"]
     column_labels=[db["type"] for db in select]
@@ -302,7 +302,7 @@ class SapDao:
       pivotDf["solde"]=pivotDf.apply(lambda row: row.entree+row.sortie, axis=1)
     else:
       pivotDf["solde"]=pivotDf.apply(lambda row: row.entree, axis=1)
-    output = pivotDf.sort_values(["entree", "itemname"], ascending=[0,1])
+    output = pivotDf.sort_values(["entree", "dscription"], ascending=[0,1])
     concatenatedDf.sort_values(by=["docdate", "doctime"], inplace=True)
     forced_entries=pd.pivot_table(concatenatedDf.query("u_name=='gilette' and type=='entree'"), index=index_fields, values=["quantity"], aggfunc='count', fill_value=0)
     cashierSiDf = pd.DataFrame(forced_entries.to_records()).sort_values(by=["quantity"], ascending=False)

@@ -303,6 +303,7 @@ class SapDao:
     else:
       pivotDf["solde"]=pivotDf.apply(lambda row: row.entree, axis=1)
     output = pivotDf.sort_values(["entree", "dscription"], ascending=[0,1])
+    output["filtre"]=output.apply(lambda x: "1" if x.solde>0 and x.onhand>x.entree else "", axis=1)
     concatenatedDf.sort_values(by=["docdate", "doctime"], inplace=True)
     forced_entries=pd.pivot_table(concatenatedDf.query("u_name=='gilette' and type=='entree'"), index=index_fields, values=["quantity"], aggfunc='count', fill_value=0)
     cashierSiDf = pd.DataFrame(forced_entries.to_records()).sort_values(by=["quantity"], ascending=False)

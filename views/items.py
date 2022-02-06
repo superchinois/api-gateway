@@ -2,7 +2,7 @@ from flask import Blueprint
 from flask import jsonify, request, current_app
 from app.flask_helpers import build_response, send_file_response
 from app.dao import dao
-from app.cache import fetch_master_itemlist
+from app.cache import fetch_master_itemlist, compute_receptions_from_date, cache
 from app.xlsxwriter_utils import to_size_col, build_formats_for
 from app.query_utils import get_first_values, compute_months_dict_betweenDates, toJoinedString
 import app.metrics_helpers as dluo_utils
@@ -14,6 +14,7 @@ from itertools import chain
 import json, gspread
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import functools
 
 from io import BytesIO
 
@@ -39,6 +40,12 @@ def get_google_sheet_client(config):
 
 def get_working_sheet_id(config):
   return config["SHEET_ID"]
+
+def substract_days_from_today(nb_of_days):
+  delta_back=dt.timedelta(days=nb_of_days)
+  toDate   = dt.date.today()
+  fromDate = (toDate - delta_back).replace(day=1)
+  return fromDate
 
 @items.route('/items/inventory-sheets', methods=['POST'])
 def add_items_to_inventory_sheet():
@@ -260,3 +267,48 @@ def compute_item_sales(itemcode):
     _output_excel(writer, "Sheet1", histo_item, resize_cols, _apply_formats)
 
   return send_file_response(output, f"{itemname}_{toDate.strftime(DATE_FMT)}.xlsx")
+
+
+@items.route('/items/receptions/<string:itemcode>', methods=['GET'])
+def compute_receptions(itemcode):
+  def reduit_acc(x,y,acc):
+    delta=x-y
+    acc.append(delta)
+    return delta
+
+  def compute_last_receptions(onhand, receptions):
+    stock_quantities = [onhand] + receptions.quantity.values.tolist()
+    remainings=[]
+    functools.reduce(lambda x,y:reduit_acc(x,y, remainings), stock_quantities)
+    idx = list(enumerate(filter(lambda x:x>0, remainings)))
+    current_active_receptions=[]
+    last_item_index=1
+    if len(idx)>0 :
+      last_index=idx[-1][0]
+      last_item_index = last_index+2
+    current_active_receptions = receptions.iloc[0:last_item_index,:]
+    return current_active_receptions
+
+  fromDateIso = request.args.get("from-date")
+  selected_onhand = request.args.get("onhand")
+  if fromDateIso:
+    cache.clear()
+  if not fromDateIso:
+    delta_back=122
+    fromDateIso=substract_days_from_today(delta_back)
+  if not selected_onhand:
+    masterdata = fetch_master_itemlist()
+    selected_onhand=masterdata[masterdata.itemcode==itemcode].onhand.values.tolist()[0]
+
+  receptions = compute_receptions_from_date(fromDateIso)
+  receptions = receptions.sort_values(by=["docdate"], ascending=False)
+  last_receptions = compute_last_receptions(selected_onhand, receptions[receptions.itemcode==itemcode])
+  output_cols=["itemcode","dscription", "quantity", "docdate", "comments"]
+  json_receptions=last_receptions.loc[:,output_cols].to_json(orient="records", date_format="iso")
+  return build_response(json_receptions)
+
+
+@items.route('/items/unsold', methods=['GET'])
+def compute_unsold_items():
+  print(request.args.getlist("groupcodes"))
+  return jsonify(message="test view"), 200 

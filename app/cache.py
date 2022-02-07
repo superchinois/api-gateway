@@ -7,12 +7,12 @@ import datetime as dt
 
 cache = Cache(config={'CACHE_TYPE': 'simple'})
 
-@cache.cached(timeout=1800)
+@cache.cached(timeout=1800, key_prefix="masterlist")
 def fetch_master_itemlist():
   result = dao.getMasterDataDf()
   return result
 
-@cache.cached(timeout=3600)
+@cache.cached(timeout=3600, key_prefix="importfile")
 def compute_from_importFile(directoryPath, file):
   # CONTENU DU FICHIER IMPORTATIONS
   excel_filepath = os.path.join(directoryPath, file)
@@ -28,3 +28,7 @@ def compute_from_importFile(directoryPath, file):
   day = dt.datetime(2020, 1, 1)
   recentDf = dffiltered.query("ETA > '{}'".format(day))
   return recentDf
+
+@cache.cached(timeout=3600, key_prefix="receptions")
+def compute_receptions_from_date(fromDate):
+  return dao.getReceptionsMarchandise(fromDate)

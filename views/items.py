@@ -303,7 +303,7 @@ def compute_receptions(itemcode):
   receptions = compute_receptions_from_date(fromDateIso)
   receptions = receptions.sort_values(by=["docdate"], ascending=False)
   last_receptions = compute_last_receptions(selected_onhand, receptions[receptions.itemcode==itemcode])
-  output_cols=["itemcode","dscription", "quantity", "docdate", "comments"]
+  output_cols=["itemcode","dscription", "quantity", "docdate", "comments", "u_dluo"]
   json_receptions=last_receptions.loc[:,output_cols].to_json(orient="records", date_format="iso")
   return build_response(json_receptions)
 

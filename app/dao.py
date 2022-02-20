@@ -390,14 +390,14 @@ class SapDao:
     for qry in queries:
         result_df.append(self.execute_query(qry))
     df=pd.concat(result_df)
-    index_fields=["docdate", "itemcode", "targettype"]
+    index_fields=["docdate", "itemcode"]
     values_fields=["quantity", "linetotal"]
     columns_fields=[]
     pivotDf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
     outputDf=pd.DataFrame(pivotDf.to_records())
     columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
     outputDf.rename(columns=columns_renamed, inplace=True)
-    return outputDf.query("targettype == -1")
+    return outputDf
 
   def getSalesStatsforItem(self, itemcode, fromDate, movingAvg=0):
     itemcodes=[itemcode]

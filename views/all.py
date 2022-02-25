@@ -86,6 +86,13 @@ def apply_formats_1(sheetname, worksheet, formats, sizes, rows, columns, datafra
   for (col, size, fmt) in sizes:
       worksheet.set_column(col, size, formats[fmt])
 
+def apply_formats_2(sheetname, worksheet, formats, sizes, rows, columns, dataframe=None):
+  correction_condition="AND(${sheetname}.$D2=0)".format(sheetname=sheetname)
+  worksheet.conditional_format("C2:C{}".format(rows+1),
+          {"type":'formula', "criteria": correction_condition, "format":formats["neutral"]})
+  for (col, size, fmt) in sizes:
+      worksheet.set_column(col, size, formats[fmt])
+
 def output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
   r, c = dataframe.shape # number of rows and columns
   dataframe.to_excel(writer, sheetname)
@@ -113,7 +120,7 @@ def stock_movements():
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_formats_1)
     output_excel(writer, "Sheet2", rawSiDf, [["E:E",63, "no_format"] ,["F:F",to_size_col(1.55), "date1"]],apply_formats_1)
-    output_excel(writer, "Sheet3", cashierSiDf, [["C:C",to_size_col(3.93), "no_format"]],apply_formats_1)
+    output_excel(writer, "Sheet3", cashierSiDf, [["C:C",to_size_col(3.93), "no_format"]],apply_formats_2)
   return send_file_response(output, f"si_{dateFrom}.xlsx")
 
 @bp.route('/historique/<string:cardcode>', methods=["POST"])
@@ -144,6 +151,7 @@ def historique_client(cardcode):
     output = BytesIO()
     periodInWeeks = 10
     siDf = dao.getItemsBoughtByClient(cardcode, periodInWeeks)
+    siDf = siDf.sort_values(["categorie", "dscription"], ascending=[1,1])
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
       output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_fmts)
     return send_file_response(output, f"historique_{cardcode}.xlsx")

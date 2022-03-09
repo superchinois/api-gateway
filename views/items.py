@@ -135,7 +135,7 @@ def items_routing():
   supplier_param = request.args.get("cardcode")
   master = fetch_master_itemlist()
   if search_param:
-    pattern='.*'+search_param.upper().replace(' ','.*')
+    pattern='.*'+search_param.upper().replace(' ','.*')+'.*'
     result = master[master["itemname"].str.contains(pattern)]
     return build_response(dao.dfToJson(result.query("sellitem=='Y'")))
   if supplier_param:

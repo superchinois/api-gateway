@@ -10,12 +10,12 @@ import sqlite3
 import itertools
 import numpy as np
 from app.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
-from app.query_utils import build_query_over, build_period, build_pivot_labels
+from app.query_utils import build_query_over, build_period, build_pivot_labels, toJoinedString, sales_for_groupCodes
 
-
+commaJoined = toJoinedString(",")
 master_data_query="""select t0.itemcode, t0.itemname,t0.codebars,t7.Price as vente, t8.rate, 
 t0.salfactor2 as 'pcb_vente', t0.purfactor2 as 'pcb_achat', t0.purfactor3 as 'pcb_pal', t0.onhand, t0.onorder, 
-t0.cardcode, t1.cardname, t2.ItmsGrpNam as categorie, t0.sellitem ,t5.Price as achat, t6.Price as revient 
+t0.cardcode, t1.cardname, t2.ItmsGrpNam as categorie, t0.sellitem ,t5.Price as achat, t6.Price as revient,t0.itmsgrpcod 
 from sbo_sis.dbo.OITM t0 
 left join sbo_sis.dbo.OCRD t1 on t1.CardCode=t0.cardcode 
 full join sbo_sis.dbo.OITB t2 on t0.ItmsGrpCod=t2.ItmsGrpCod 
@@ -477,6 +477,39 @@ class SapDao:
 
     output_cols = ["cardname","total","freq"]+dates+["moy", "remplis."]
     return result_df.loc[:, output_cols]
+
+  def compute_unsold_items(self, filtered_master, period, groupcodes, receptions):
+    def get_reception_data(itemcode, itemcodes_received, filtered_receptions):
+      values=["docdate", "quantity"]
+      if itemcode not in itemcodes_received:
+        return [[""]*len(values)]
+      else:
+        received = filtered_receptions.query("itemcode=='{}'".format(itemcode)).loc[:,values]
+        return received.values.tolist()
+
+    sales_df = self.execute_query(sales_for_groupCodes(period)(commaJoined(groupcodes)))
+    index_fields = ["itemcode"]
+    values_fields=["quantity"]
+    columns_fields=[]
+    pivot = pd.pivot_table(sales_df, index=index_fields,
+            values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+    sales = pd.DataFrame(pivot.to_records())
+    sales.rename(columns={"('sum', 'quantity')":"sold"}, inplace=True)
+
+    master = filtered_master
+    category_set = set(master.query("onhand>0 and sellitem=='Y'").itemcode.values.tolist())
+    vente_set = set(sales.itemcode.values.tolist())
+    unsold_query="itemcode in @unsold"
+    unsold = list((category_set-vente_set))
+    filtered_receptions = receptions.query(unsold_query)
+    itemcodes_received = set(filtered_receptions.itemcode.values.tolist())
+
+    unsold_itemcodes = master.query(unsold_query).itemcode.values.tolist()
+    unsold_df = pd.DataFrame([[item] + get_reception_data(item, itemcodes_received, filtered_receptions)[0] for item in unsold_itemcodes]
+                            , columns=["itemcode", "last_reception", "last_quantity"])
+    master = pd.merge(master, unsold_df, on=["itemcode"])
+    output_df = master.query(unsold_query)
+    return output_df
 
 dao = SapDao()
 

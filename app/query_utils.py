@@ -123,3 +123,18 @@ def build_pivot_labels(fields, years, months):
 
 def get_first_values(dataframe, column):
     return dataframe[column].values.tolist()[0]
+
+def sales_for_groupCodes(period):
+    sql_params={
+    'fields':["year(t1.docdate) as year","month(t1.docdate) as month","datepart(wk, t1.docdate) as week"
+             ,"t1.docdate", "t1.doctime", "t0.itemcode", "t0.dscription as itemname", "t0.quantity", "t1.cardname"
+             ,"t0.linetotal", "t1.docnum"],
+    'tables':"dbo.inv1 t0",
+    'join':{"dbo.oinv t1":('1',["t0.docentry=t1.docentry","year(t1.docdate)='{year}'","month(t1.docdate) in ({months})"]),
+             "dbo.ocrd _ocrd":('2', ["_ocrd.cardcode=t1.cardcode","(_ocrd.qrygroup1='Y' or _ocrd.qrygroup18='Y')"]),
+             "dbo.oitm _oitm":('3', ["_oitm.itemcode=t0.itemcode","_oitm.itmsgrpcod in ({groupcodes})"])},
+    }
+    def format_with_itemcodes(groupcodes):
+        stmt=querybuilder(sql_params).format_map({'groupcodes':groupcodes, 'year':period['year'],'months':period['months']})
+        return stmt
+    return format_with_itemcodes

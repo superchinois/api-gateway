@@ -501,7 +501,7 @@ class SapDao:
     vente_set = set(sales.itemcode.values.tolist())
     unsold_query="itemcode in @unsold"
     unsold = list((category_set-vente_set))
-    filtered_receptions = receptions.query(unsold_query)
+    filtered_receptions = receptions.query(unsold_query).sort_values(by=["docdate"], ascending=False)
     itemcodes_received = set(filtered_receptions.itemcode.values.tolist())
 
     unsold_itemcodes = master.query(unsold_query).itemcode.values.tolist()

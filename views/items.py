@@ -365,7 +365,7 @@ def compute_unsold_items():
       month = fromDateIsoSplit[1]
     selected_period=build_period(year, [month])
     receptions = compute_receptions_from_date(origin_reception.strftime(DATE_FMT))
-    filtered_master = fetch_master_itemlist().query("itmsgrpcod=='{}'".format(groupcode))
+    filtered_master = fetch_master_itemlist().query("itmsgrpcod=={}".format(groupcode))
     output_df = dao.compute_unsold_items(filtered_master, selected_period, [groupcode], receptions) # [groupcode] because expect an array
     output_df["ratio"] = [sanitize_ratio(row) for row in output_df.itertuples()] # FORMAT AS PERCENTAGE
     output_df["days_since"]=[sanitize_date(row, toDate) for row in output_df.itertuples()]

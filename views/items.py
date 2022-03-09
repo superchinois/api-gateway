@@ -4,7 +4,8 @@ from app.flask_helpers import build_response, send_file_response
 from app.dao import dao
 from app.cache import fetch_master_itemlist, compute_receptions_from_date, cache
 from app.xlsxwriter_utils import to_size_col, build_formats_for
-from app.query_utils import get_first_values, compute_months_dict_betweenDates, toJoinedString
+from app.query_utils import get_first_values, compute_months_dict_betweenDates, toJoinedString, sales_for_groupCodes
+from app.query_utils import build_period
 import app.metrics_helpers as dluo_utils
 import os, re
 import datetime as dt
@@ -46,6 +47,17 @@ def substract_days_from_today(nb_of_days):
   toDate   = dt.date.today()
   fromDate = (toDate - delta_back).replace(day=1)
   return fromDate
+
+def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
+    r, c = dataframe.shape # number of rows and columns
+    dataframe.to_excel(writer, sheetname, index=False)
+    # Get the xlsxwriter workbook and worksheet objects.
+    workbook  = writer.book
+    formats = build_formats_for(workbook)
+    worksheet = writer.sheets[sheetname]
+    worksheet.freeze_panes(1,1)
+    worksheet.autofilter(0,0,r,c)
+    apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
 
 @items.route('/items/inventory-sheets', methods=['POST'])
 def add_items_to_inventory_sheet():
@@ -236,16 +248,6 @@ def compute_item_sales(itemcode):
   def _apply_formats(sheetname, worksheet, formats, sizes, rows, columns, dataframe=None):
     for (col, size, fmt) in sizes:
       worksheet.set_column(col, size, formats[fmt])
-  def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
-    r, c = dataframe.shape # number of rows and columns
-    dataframe.to_excel(writer, sheetname, index=False)
-    # Get the xlsxwriter workbook and worksheet objects.
-    workbook  = writer.book
-    formats = build_formats_for(workbook)
-    worksheet = writer.sheets[sheetname]
-    worksheet.freeze_panes(1,1)
-    worksheet.autofilter(0,0,r,c)
-    apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
   masterdata = fetch_master_itemlist()
   itemname = get_first_values(masterdata.query("itemcode=='{}'".format(itemcode)), "itemname")
   delta_back=122
@@ -310,5 +312,74 @@ def compute_receptions(itemcode):
 
 @items.route('/items/unsold', methods=['GET'])
 def compute_unsold_items():
-  print(request.args.getlist("groupcodes"))
-  return jsonify(message="test view"), 200 
+
+  def sanitize_ratio(row):
+    last_quantity = row.last_quantity
+    if isinstance(last_quantity, str):
+      last_quantity_len=len(last_quantity)
+      if last_quantity_len>0:
+        return float(row.onhand)/float(row.last_quantity)
+      else:
+        return None
+    else:
+        return float(row.onhand)/float(row.last_quantity)
+
+  def build_sanitize_date(originDate):
+    def _sanitize_date(row, today):
+      since_origin = (today-originDate).days+1
+      DATE_FMT="%Y-%m-%d %H:%M:%S"
+      if (not pd.isna(row.last_reception)):
+        last_reception = str(row.last_reception)
+        last_reception_len = len(last_reception)
+        if last_reception_len>0 :
+          date=dt.datetime.strptime(last_reception, DATE_FMT)
+          return (today-date).days
+        else: 
+          return since_origin
+      else:
+        return since_origin
+    return _sanitize_date
+
+  def apply_formats_1(sheetname, worksheet, formats, sizes, rows, columns, dataframe=None):
+    worksheet.conditional_format("C2:C{}".format(rows+1), 
+                            {"type":'cell', "criteria":'>', "value":'{}'.format(0.5), "format":formats["bad"]})
+    worksheet.conditional_format("B2:B{}".format(rows+1), 
+                            {"type":'formula', "criteria":"${sheetname}.$C2>0.5".format(sheetname=sheetname), "format":formats["bad"]})
+    for (col, size, fmt) in sizes:
+      worksheet.set_column(col, size, formats[fmt])
+
+  three_yeas_in_days = 3*365
+  toDate   = dt.datetime.today()
+  isoTodayArray = toDate.strftime(DATE_FMT).split("-")
+  year=isoTodayArray[0]
+  month=isoTodayArray[1]
+
+  origin_reception=(toDate - dt.timedelta(days=three_yeas_in_days)).replace(month=1, day=1)
+  sanitize_date = build_sanitize_date(origin_reception)
+  groupcode=request.args.get("groupcode")
+  if groupcode:
+    fromDateIso = request.args.get("from-date")
+    if fromDateIso:
+      fromDateIsoSplit = fromDateIso.split("-")
+      year = fromDateIsoSplit[0]
+      month = fromDateIsoSplit[1]
+    selected_period=build_period(year, [month])
+    receptions = compute_receptions_from_date(origin_reception.strftime(DATE_FMT))
+    filtered_master = fetch_master_itemlist().query("itmsgrpcod=='{}'".format(groupcode))
+    output_df = dao.compute_unsold_items(filtered_master, selected_period, [groupcode], receptions) # [groupcode] because expect an array
+    output_df["ratio"] = [sanitize_ratio(row) for row in output_df.itertuples()] # FORMAT AS PERCENTAGE
+    output_df["days_since"]=[sanitize_date(row, toDate) for row in output_df.itertuples()]
+    output_cols = ["itemcode", "itemname","ratio", "days_since", "last_reception", "last_quantity", "onhand"]
+    output_df = output_df.sort_values(["days_since", "ratio"], ascending=[1,0])
+    output_df = output_df.loc[:,output_cols]
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+      resize_cols = [
+           ["B:B", to_size_col(6.6), "no_format"]
+          ,["C:C", to_size_col(1), "percents"]
+          ,["E:E", to_size_col(2), "date1"]
+      ]
+      _output_excel(writer, "Sheet1", output_df, resize_cols, apply_formats_1)
+    return send_file_response(output, f"{groupcode}_{toDate.strftime(DATE_FMT)}.xlsx")
+  else:
+    return jsonify(message="group code is missing"), 400

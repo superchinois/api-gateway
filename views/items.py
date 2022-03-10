@@ -296,7 +296,7 @@ def compute_receptions(itemcode):
   if fromDateIso:
     cache.clear()
   if not fromDateIso:
-    delta_back=122
+    delta_back=365*2
     fromDateIso=substract_days_from_today(delta_back)
   if not selected_onhand:
     masterdata = fetch_master_itemlist()

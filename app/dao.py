@@ -507,8 +507,7 @@ class SapDao:
     unsold_itemcodes = master.query(unsold_query).itemcode.values.tolist()
     unsold_df = pd.DataFrame([[item] + get_reception_data(item, itemcodes_received, filtered_receptions)[0] for item in unsold_itemcodes]
                             , columns=["itemcode", "last_reception", "last_quantity"])
-    master = pd.merge(master, unsold_df, on=["itemcode"])
-    output_df = master.query(unsold_query)
+    output_df = pd.merge(master, unsold_df, on=["itemcode"])
     return output_df
 
 dao = SapDao()

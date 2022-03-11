@@ -369,7 +369,7 @@ def compute_unsold_items():
     output_df = dao.compute_unsold_items(filtered_master, selected_period, [groupcode], receptions) # [groupcode] because expect an array
     output_df["ratio"] = [sanitize_ratio(row) for row in output_df.itertuples()] # FORMAT AS PERCENTAGE
     output_df["days_since"]=[sanitize_date(row, toDate) for row in output_df.itertuples()]
-    output_cols = ["itemcode", "itemname","ratio", "days_since", "last_reception", "last_quantity", "onhand"]
+    output_cols = ["itemcode", "itemname","ratio", "days_since", "last_reception", "last_quantity", "onhand", "cardname"]
     output_df = output_df.sort_values(["days_since", "ratio"], ascending=[1,0])
     output_df = output_df.loc[:,output_cols]
     output = BytesIO()
@@ -380,6 +380,6 @@ def compute_unsold_items():
           ,["E:E", to_size_col(2), "date1"]
       ]
       _output_excel(writer, "Sheet1", output_df, resize_cols, apply_formats_1)
-    return send_file_response(output, f"{groupcode}_{toDate.strftime(DATE_FMT)}.xlsx")
+    return send_file_response(output, f"invendu_{groupcode}_{toDate.strftime(DATE_FMT)}.xlsx")
   else:
     return jsonify(message="group code is missing"), 400

@@ -57,7 +57,7 @@ def computeWeeklySales(cardcode):
   output = BytesIO()
   writer = pd.ExcelWriter(output, engine='xlsxwriter')
   # Call to cadencier
-  periodInWeeks = 10
+  periodInWeeks = 5
   #salesDataDf = dao.getSales(cardcode, periodInWeeks)
   salesDataDf, weeks = dao.getWeeklySales(cardcode, periodInWeeks)
   salesDataDf = salesDataDf.query("sellitem=='Y'").sort_values(by=["itemname"])

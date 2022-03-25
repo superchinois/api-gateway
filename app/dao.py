@@ -136,8 +136,8 @@ class SapDao:
 
 
   def getOnOrders(self):
-    orders = self.execute_query("""select t0.docnum, t0.cardcode, t0.cardname, t0.docdate, t0.docstatus, t0.comments from dbo.opor t0 
-  where t0.docstatus='O' and abs(datediff(wk, getdate(),t0.docdate))<3""")
+    orders = self.execute_query("""select t0.docnum, t0.cardcode, t0.cardname, t0.taxdate, t0.docstatus, t0.comments from dbo.opor t0 
+  where t0.docstatus='O' and abs(datediff(wk, getdate(),t0.taxdate))<3""")
     orders["comments"] = orders.apply(lambda row: self.normalize_comments(row.comments), axis=1)
     orders.sort_values(by=["cardname"], inplace=True)
     return orders
@@ -313,6 +313,8 @@ class SapDao:
       fields = ["_pdn1.itemcode"
                 #,"_pdn1.linenum"
                 ,"_opdn.docdate"
+                ,"year(_opdn.docdate) as year"
+                ,"datepart(wk, _opdn.docdate) as week"
                 ,"_opdn.docnum"
                 ,"_opdn.numatcard"
                 ,"_opdn.cardcode"
@@ -336,6 +338,7 @@ class SapDao:
       q=querybuilder(entree_march_params)
       df=self.execute_query(q)
       df["comments"] = [self.normalize_comments(row.comments) for row in df.itertuples()]
+      df["c"] = [assign_date(row) for row in df.itertuples()]
       return df
 
   def getItemsBoughtByClient(self, cardcode, periodInWeeks):

@@ -20,6 +20,10 @@ class Config(object):
     APP_RUNNING_PORT=5000
     GOOGLE_CREDENTIALS="credentials.json"
     SHEET_ID="19JOyp4S78mfTKsAClaSWMDhppbrsbyHl58hvBd_1pMo"
+    MONGO_URI="mongodb://{mongo_server}:{mongo_port}".format(mongo_server=env_config()["MONGO_SERVER"]
+                                                            ,mongo_port=env_config()["MONGO_PORT"])
+    MONGO_DATABASE="analytics"
+    MONGO_COLLECTION="raw-data"
 
 class ProductionConfig(Config):
     pass

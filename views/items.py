@@ -42,12 +42,6 @@ def get_google_sheet_client(config):
 def get_working_sheet_id(config):
   return config["SHEET_ID"]
 
-def substract_days_from_today(nb_of_days):
-  delta_back=dt.timedelta(days=nb_of_days)
-  toDate   = dt.date.today()
-  fromDate = (toDate - delta_back).replace(day=1)
-  return fromDate
-
 def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
     r, c = dataframe.shape # number of rows and columns
     dataframe.to_excel(writer, sheetname, index=False)
@@ -297,7 +291,7 @@ def compute_receptions(itemcode):
     cache.clear()
   if not fromDateIso:
     delta_back=365*2
-    fromDateIso=substract_days_from_today(delta_back)
+    fromDateIso=dluo_utils.substract_days_from_today(delta_back)
   if not selected_onhand:
     masterdata = fetch_master_itemlist()
     selected_onhand=masterdata[masterdata.itemcode==itemcode].onhand.values.tolist()[0]

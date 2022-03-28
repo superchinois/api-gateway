@@ -21,6 +21,12 @@ def reduit_acc(x,y,acc):
   acc.append(delta)
   return delta
 
+def substract_days_from_today(nb_of_days):
+  delta_back=dt.timedelta(days=nb_of_days)
+  toDate   = dt.date.today()
+  fromDate = (toDate - delta_back).replace(day=1)
+  return fromDate
+
 def compute_ols(dataframe):
   '''
   Computes metrics for a dataframe containing sales data for a set 

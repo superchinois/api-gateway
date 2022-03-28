@@ -4,12 +4,17 @@ from app.flask_helpers import build_response, send_file_response
 from app.dao import dao
 from app.cadencier import format_to_excel
 from app.xlsxwriter_utils import build_formats_for
+from app.cache import compute_receptions_from_date
+from app.metrics_helpers import substract_days_from_today
+from app.cache_dao import cache_dao
 
 from io import BytesIO
 from flask import Flask
 import xlsxwriter
 import datetime as dt
 import pandas as pd
+import numpy as np
+import itertools
 
 suppliers = Blueprint("suppliers", __name__)
 
@@ -52,17 +57,35 @@ def computeWeeklySales(cardcode):
     isSameWeek = deltaDays>0 and deltaDays<7
     isInDiscountPeriod = fromdate<=monday and monday<=todate
     return isSameWeek or isInDiscountPeriod
+  def build_label(values, columns):
+    return ["('sum', '{}', '{}')".format(x[0], x[1]) for x in itertools.product(values, columns)]
 
   now = dt.datetime.now().strftime("%Y-%m-%d")
   output = BytesIO()
   writer = pd.ExcelWriter(output, engine='xlsxwriter')
   # Call to cadencier
   periodInWeeks = 5
+  nb_days_in_one_week = 7
   #salesDataDf = dao.getSales(cardcode, periodInWeeks)
-  salesDataDf, weeks = dao.getWeeklySales(cardcode, periodInWeeks)
+  salesDataDf, weeks = cache_dao.getWeeklySales(cardcode, periodInWeeks)
   salesDataDf = salesDataDf.query("sellitem=='Y'").sort_values(by=["itemname"])
   salesDataDf.drop(["sellitem"], axis=1, inplace=True)
-  receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
+  #receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
+  dateFrom = substract_days_from_today(periodInWeeks*nb_days_in_one_week)
+  receipts_po = compute_receptions_from_date(dateFrom).query(f"cardcode=='{cardcode}'")
+  index_fields=["itemcode", "dscription"]
+  values_fields=["quantity"]
+  columns_fields=["c"]
+  pivot_sales = pd.pivot_table(receipts_po, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+  outputDf=pd.DataFrame(pivot_sales.to_records())
+  column_labels = receipts_po["c"].unique().tolist()
+  column_labels.sort(reverse=True)
+  labels_count=len(column_labels)
+  ind_fields_count=len(index_fields)
+  shortened_col_labels = column_labels #list(map(lambda x:x[5:],column_labels))
+  columns_renamed = {k:v for k,v in zip(build_label(values_fields, column_labels), shortened_col_labels)}
+  outputDf.rename(columns=columns_renamed, inplace=True)
+  outputDf = outputDf.loc[:,index_fields+shortened_col_labels]
   r, c=salesDataDf.shape
   # Convert the dataframe to an XlsxWriter Excel object.
   salesDataDf.to_excel(writer, sheet_name='Sheet1')
@@ -71,9 +94,9 @@ def computeWeeklySales(cardcode):
   formats = build_formats_for(workbook)
   worksheet = writer.sheets["Sheet1"]
   itemname_width=63
-  date_width = 11
+  date_width = 14
   worksheet.set_column("B:B", itemname_width, None)
-  worksheet.set_column("F:P", date_width, None)
+  worksheet.set_column("E:P", date_width, None)
   worksheet.freeze_panes(1,2)
   worksheet.autofilter(0,0,r,c)
 
@@ -87,21 +110,22 @@ def computeWeeklySales(cardcode):
   # Apply formats 
   for idx, row in enumerate(salesDataDf.itertuples()):
     itemcode = salesDataDf.index[idx]
-    receipt_item = receipts_po.query(f"itemcode=='{itemcode}'")
-    receipt_date = receipt_item.c
+    receipt_item = outputDf.query(f"itemcode=='{itemcode}'")
+    receipt_dates = outputDf.columns
+    dates = receipt_dates[2:] #receipt_date.values.tolist()
     for w in weeks:
       week_col = df_columns.get_loc(w)
       if not discounted_items.loc[masks[w]].query(f"itemcode=='{itemcode}'").empty:
         worksheet.write(idx+1, week_col+1, salesDataDf.iloc[idx, week_col], formats["good"])
-    if not receipt_date.empty:
-      dates = receipt_date.values.tolist()
-      col_numbers = map(lambda x: salesDataDf.columns.get_loc(x), dates)
-      for date_idx, col in enumerate(col_numbers):
-        receipt_quantity=receipt_item.query(f"c=='{dates[date_idx]}'").quantity.sum()
-        worksheet.write_comment(idx+1, col+1, f"recu : {receipt_quantity}")
+      if w in dates:
+        if not receipt_item.empty:
+          receipt_quantity = receipt_item.iloc[0][w]
+          if receipt_quantity>0 :
+            worksheet.write_comment(idx+1, week_col+1, f"recu : {receipt_quantity}")
+
   # Close the workbook before streaming the data.
   writer.save()
-  workbook.close()
+  #workbook.close()
   return send_file_response(output, f"{cardcode}_{now}.xlsx")
 
 @suppliers.route('/suppliers/import/sales/<string:cardcode>', methods=["POST"])

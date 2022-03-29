@@ -125,6 +125,45 @@ class CacheDao:
             result[code] = {"itemname": item_data.itemname.tolist()[0],"data": data}
         return json.dumps(result[itemcode])
 
+    def getImportSales(self, cardcode, periodInWeeks):
+        display_cols=["itemname", "sellitem", "categorie", "vente", "achat", "revient","marge_theo", "marge_sap", "onhand", "onorder"]
+        cols=["quantity", "ca_ht", "linegrossbuypr"]
+        df=self.find_query(sales_within_period(cardcode, periodInWeeks))
+        # Force value 0.0 into discprcnt column
+        #for idx in range(len(df)):
+        #  row=df.iloc[idx]
+        #  if np.isnan(row.discprcnt):
+        #    df.loc[idx,'discprcnt']=0.0
+        df["ca_ht"] = df["linetotal"] #*(1-df["discprcnt"]/100)
+        df["c"] = [getMondayOf(row.docdate).strftime(self.DATE_FMT) for row in df.itertuples()]
+        df["linegrossbuypr"] = df["quantity"]*df["grossbuypr"]
+        pvtable = pd.pivot_table(df, index=["itemcode"],
+                    values=cols,
+                    columns=['c'],
+                    aggfunc=[np.sum],
+                    fill_value=0)
+        ddff = pd.DataFrame(pvtable.to_records())
+        all_columns = ddff.head().columns.values.tolist()
+        column_groups=list(map(lambda col: filter(lambda x: col in x, all_columns), cols))
+        column_groups=[sorted(x, reverse=True) for x in column_groups]
+        ddf=ddff.set_index("itemcode")
+        # compute sum over period for quantity, linetotal, linegrossbuypr
+        for colidx, colname in enumerate(cols):
+          ddf["total_{}".format(colname)] = ddf.loc[:,list(column_groups[colidx])].sum(axis=1)
+
+        masterdata = fetch_master_itemlist()
+        displayed=display_cols+list(map(lambda x: "total_{}".format(x), cols[:2]))+list(itertools.chain.from_iterable(column_groups[:2]))
+
+        joinedData = masterdata.set_index("itemcode").query("cardcode=='{}'".format(cardcode)).join(ddf).fillna(0)
+        joinedData["marge_theo"]=(joinedData["vente"]-joinedData["revient"])/joinedData["revient"]
+        joinedData["marge_sap"]=(joinedData["total_ca_ht"]-joinedData["total_linegrossbuypr"])/joinedData["total_linegrossbuypr"]
+
+        outputData = joinedData.loc[:,displayed]
+        renamed = {k:"".join(k[1:-1].split(",")[1:]).replace("'","").strip() for k in list(itertools.chain.from_iterable(column_groups[:2]))}
+        outputData.rename(columns=renamed, inplace=True)
+
+        return outputData
+
 
 
 cache_dao = CacheDao()

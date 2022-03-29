@@ -133,7 +133,7 @@ def computeImportSales(cardcode):
   now = dt.datetime.now().strftime("%Y-%m-%d")
   output = BytesIO()
   periodInWeeks = 16
-  salesDataDf = dao.getImportSales(cardcode, periodInWeeks)
+  salesDataDf = cache_dao.getImportSales(cardcode, periodInWeeks)
   receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
   column_name = " ".join(["quantity", receipts_po.loc[0,"c"]])
   r, c = salesDataDf.shape # number of rows and columns
@@ -174,7 +174,7 @@ def computeImportSales(cardcode):
   # Close the Pandas Excel writer and output the Excel file.
   writer.save()
   # Close the workbook before streaming the data.
-  workbook.close()
+  #workbook.close()
   return send_file_response(output, f"{cardcode}_{now}.xlsx")
 
 

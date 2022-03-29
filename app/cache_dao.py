@@ -4,8 +4,8 @@ import pandas as pd
 import datetime as dt
 import itertools
 import numpy as np
-
-
+import json
+from app.query_utils import convertSerieToDataArray
 from app.cache import fetch_master_itemlist
 
 def build_label(values, columns):
@@ -42,6 +42,10 @@ def last_docnum(from_date: str, date_format: str):
     ]
     options={}
     return pipeline, options
+
+def sales_for_item_between_dates(itemcode, fromDate, toDate):
+    query={"$and":[{"itemcode":itemcode}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
+    return query
 
 class CacheDao:
     keys = ["MONGO_URI", "MONGO_DATABASE", "MONGO_COLLECTION"]
@@ -91,6 +95,35 @@ class CacheDao:
         joinedData = pd.merge(masterFiltered, salesDdff, on=["itemcode"], how="inner")
         result = joinedData.loc[:,display_cols+dates_displayed]
         return result.set_index("itemcode"), dates_displayed
+
+    def getSalesStatsforItem(self, itemcode, fromDate, toDate, movingAvg=0):
+        df = self.find_query(sales_for_item_between_dates(itemcode, fromDate, toDate))
+        index_fields=["docdate", "itemcode"]
+        values_fields=["quantity", "linetotal"]
+        columns_fields=[]
+        pivotDf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+        outputDf=pd.DataFrame(pivotDf.to_records())
+        columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
+        outputDf.rename(columns=columns_renamed, inplace=True)
+        df = outputDf.sort_values(by=["docdate"])
+        result = {}
+        output_cols = ["docdate","quantity","linetotal"]
+        value_to_plot="quantity"
+        qstring="itemcode=='{}'"
+        masterdata = fetch_master_itemlist()
+        itemcodes=[itemcode]
+        for code in itemcodes:
+            ydata=df.query(qstring.format(code)).loc[:,output_cols].set_index("docdate")
+            start = ydata.index[0]
+            end = toDate
+            X = pd.date_range(start, end, freq='D')
+            Y = pd.Series(ydata[value_to_plot], index=X)
+            item_data = masterdata.query(qstring.format(code))
+            data = convertSerieToDataArray(Y)
+            if movingAvg>1:
+                data = convertSerieToDataArray(Y.fillna(0.0).rolling(window=movingAvg).mean())
+            result[code] = {"itemname": item_data.itemname.tolist()[0],"data": data}
+        return json.dumps(result[itemcode])
 
 
 

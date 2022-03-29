@@ -2,6 +2,7 @@ from flask import Blueprint
 from flask import jsonify, request, current_app
 from app.flask_helpers import build_response, send_file_response
 from app.dao import dao
+from app.cache_dao import cache_dao
 from app.cache import fetch_master_itemlist, compute_receptions_from_date, cache
 from app.xlsxwriter_utils import to_size_col, build_formats_for
 from app.query_utils import get_first_values, compute_months_dict_betweenDates, toJoinedString, sales_for_groupCodes
@@ -141,11 +142,12 @@ def items_routing():
 def sales_stats(itemcode):
   fromDateIso = request.args.get("from-date")
   movingAvg = request.args.get("moving-avg")
-  fromDate = dt.datetime.strptime(fromDateIso,DATE_FMT).date()
+  fromDate = dt.datetime.strptime(fromDateIso,DATE_FMT)
+  nowDate = dt.datetime.now()
   if movingAvg:
-    result = dao.getSalesStatsforItem(itemcode, fromDate, int(movingAvg))
+    result = cache_dao.getSalesStatsforItem(itemcode, fromDate, nowDate, int(movingAvg))
   else :
-    result = dao.getSalesStatsforItem(itemcode, fromDate)
+    result = cache_dao.getSalesStatsforItem(itemcode, fromDate, nowDate)
   return build_response(result)
 
 @items.route('/items/stats/sales/<string:itemcode>/<string:date>', methods=['GET'])

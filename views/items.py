@@ -169,7 +169,7 @@ def compute_dluo_metrics():
   delta_back=122
   delta_back=dt.timedelta(days=delta_back)
 
-  toDate   = dt.date.today()
+  toDate   = dt.datetime.now()
   fromDate = (toDate - delta_back).replace(day=1)
   origin_reception=(toDate - dt.timedelta(days=two_yeas_in_days)).replace(month=1, day=1).strftime(DATE_FMT)
   masterdata = fetch_master_itemlist()
@@ -177,7 +177,7 @@ def compute_dluo_metrics():
   receptions_vector = dluo_utils.compute_receptions_vector(masterdata, receptions)
 
   itemcodes = list(map(lambda x:x[0], dluo_utils.select_items(receptions_vector, days_within_dluo)))
-  sales_df = dao.compute_sales_for_itemcodes_betweenDates(itemcodes, fromDate, toDate)
+  sales_df = cache_dao.compute_sales_for_itemcodes_betweenDates(itemcodes, fromDate, toDate)
   dluos = dluo_utils.compute_forecasts(masterdata,itemcodes)(sales_df)
   dluo_utils.add_metrics(dluos, receptions_vector)
   displayed_order=[

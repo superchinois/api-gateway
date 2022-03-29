@@ -47,6 +47,10 @@ def sales_for_item_between_dates(itemcode, fromDate, toDate):
     query={"$and":[{"itemcode":itemcode}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
     return query
 
+def sales_for_items_between_dates(itemcodes, fromDate, toDate):
+    query={"$and":[{"itemcode":{"$in": itemcodes}}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
+    return query
+
 class CacheDao:
     keys = ["MONGO_URI", "MONGO_DATABASE", "MONGO_COLLECTION"]
     URI, DB, COLLECTION = keys
@@ -163,6 +167,18 @@ class CacheDao:
         outputData.rename(columns=renamed, inplace=True)
 
         return outputData
+
+    def compute_sales_for_itemcodes_betweenDates(self, itemcodes, fromDate, toDate):
+        result_df = self.find_query(sales_for_items_between_dates(itemcodes, fromDate, toDate))
+        df=result_df
+        index_fields=["docdate", "itemcode"]
+        values_fields=["quantity", "linetotal"]
+        columns_fields=[]
+        pivotDf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+        outputDf=pd.DataFrame(pivotDf.to_records())
+        columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
+        outputDf.rename(columns=columns_renamed, inplace=True)
+        return outputDf
 
 
 

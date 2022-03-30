@@ -4,6 +4,7 @@ from flask import send_from_directory
 
 from app.utils.flask_helpers import build_response, send_file_response
 from app.utils.xlsxwriter_utils import to_size_col, build_formats_for
+from app.utils.mongo_utils import queryUpdateCache
 from app.dao import dao
 from app.cache_dao import cache_dao
 from xlsxwriter.utility import xl_rowcol_to_cell
@@ -158,3 +159,15 @@ def historique_client(cardcode):
     return send_file_response(output, f"historique_{cardcode}.xlsx")
   else:
     return jsonify(message="The request does not contain json data"), 400
+
+@bp.route('/cache/last_updated', methods=["GET"])
+def get_last_updated():
+  last_updated = cache_dao.last_record()
+  return build_response(json.dumps(last_updated))
+
+@bp.route('/cache/update', methods=["POST"])
+def update_cache_data():
+  last_docnum = cache_dao.last_record()["docnum"]
+  updated_data = queryUpdateCache.get_data_from_sap_as_df(last_docnum)
+  cache_dao.importFromDataframe(updated_data)
+  return build_response(dao.dfToJson(updated_data))

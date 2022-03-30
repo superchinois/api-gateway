@@ -41,7 +41,7 @@ def customer_sales_within_period(cardcode, periodInWeeks):
 def last_docnum(from_date: dt.datetime):
     pipeline = [
         {"$match":{"docdate":{"$gt":from_date}}},
-        {"$project":{"docnum":1, "week_num":{"$isoWeek":"$docdate"}}},
+        {"$project":{"docnum":1, "timestamp":{"$dateToString": {"format":"%Y-%m-%dT%H:%M:%S", "date":"$isodate"}}}},
         {"$sort":{"docnum":pymongo.DESCENDING}},
         {"$limit":1}
     ]
@@ -55,6 +55,21 @@ def sales_for_item_between_dates(itemcode, fromDate, toDate):
 def sales_for_items_between_dates(itemcodes, fromDate, toDate):
     query={"$and":[{"itemcode":{"$in": itemcodes}}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
     return query
+
+def importFromCsv(config):
+    mongo_uri, db_name, collection_name = config
+    def _load_file(csvFilename):
+        dataframe = pd.read_csv(csvFilename, sep=";", dtype={"itemcode":str})
+        dataframe["isodate"] = [toIsoFormat(row.docdate, row.doctime) for row in dataframe.itertuples()]
+        dataframe['isodate'] = pd.to_datetime(dataframe['isodate'])
+        dataframe['docdate'] = pd.to_datetime(dataframe['docdate'])
+        dataframe.fillna("", inplace=True)
+        data_to_import = dataframe.to_dict("records")
+        with pymongo.MongoClient(mongo_uri) as mg_client:
+            tags_db = get_collection_from_db(db_name, collection_name)(mg_client)
+            tags_db.insert_many(data_to_import)
+            
+    return _load_file
 
 class CacheDao:
     keys = ["MONGO_URI", "MONGO_DATABASE", "MONGO_COLLECTION"]
@@ -71,16 +86,33 @@ class CacheDao:
         return client[self.config[self.DB]][self.config[self.COLLECTION]]
 
     def find_query(self, query) -> pd.DataFrame:
-        return self.with_collection(lambda data: data.find(query))
+        foundData = self.with_collection(lambda data: data.find(query))
+        return pd.DataFrame(list(foundData))
 
     def apply_aggregate(self, pipeline, options):
-        return self.with_collection(lambda data: data.aggregate(pipeline, options))
+        foundData = self.with_collection(lambda data: data.aggregate(pipeline, options))
+        return foundData
 
     def with_collection(self, computation) -> pd.DataFrame:
         with pymongo.MongoClient(self.config[self.URI]) as mg_client:
             collection_data = self.get_collection_from_db(mg_client)
             result = computation(collection_data)
-            return pd.DataFrame(list(result))
+            return result
+
+    def deleteFromQuery(self, query) -> None:
+        result = self.with_collection(lambda data: data.delete_many(query))
+        print(result.deleted_count)
+
+    def last_record(self):
+        sinceDate=dt.datetime.now()-dt.timedelta(weeks=8)
+        docnum_obj = list(self.apply_aggregate(*last_docnum(sinceDate)))
+        if len(docnum_obj)>0:
+            value = docnum_obj[0].pop('_id', None)
+        return docnum_obj[0]
+
+    def importFromDataframe(self, dataframe):
+        data_to_import = dataframe.to_dict("records")
+        self.with_collection(lambda data: data.insert_many(data_to_import))
 
     def getWeeklySales(self, cardcode, periodInWeeks):
         sales_df = self.find_query(sales_within_period(cardcode, periodInWeeks))

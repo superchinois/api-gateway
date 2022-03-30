@@ -44,7 +44,7 @@ def compute_header_layout(row, column_start, data_vec, formats):
   result=[]
   head_fmt = formats['head_fmt']
   for idx, header in enumerate(data_vec):
-    if header is not 'All':
+    if header != 'All':
       #head_label=header.strftime("%Y-%m-%d")
       head_label=header
       result.append(Label(head_label, [row, column_start+idx],xls_format=head_fmt))

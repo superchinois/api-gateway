@@ -9,8 +9,8 @@ import json
 import sqlite3
 import itertools
 import numpy as np
-from app.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
-from app.query_utils import build_query_over, build_period, build_pivot_labels, toJoinedString, sales_for_groupCodes
+from app.utils.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
+from app.utils.query_utils import build_query_over, build_period, build_pivot_labels, toJoinedString, sales_for_groupCodes
 
 commaJoined = toJoinedString(",")
 master_data_query="""select t0.itemcode, t0.itemname,t0.codebars,t7.Price as vente, t8.rate, 

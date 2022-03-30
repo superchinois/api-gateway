@@ -2,7 +2,7 @@ from flask import Blueprint
 from flask import jsonify, request
 from flask import current_app
 from app.dao import dao
-from app.flask_helpers import build_response
+from app.utils.flask_helpers import build_response
 import re
 
 tags = Blueprint("tags", __name__)

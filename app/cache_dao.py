@@ -3,9 +3,10 @@ import pymongo
 import pandas as pd
 import datetime as dt
 import itertools
+import functools
 import numpy as np
 import json
-from app.query_utils import convertSerieToDataArray
+from app.utils.query_utils import convertSerieToDataArray
 from app.cache import fetch_master_itemlist
 
 def build_label(values, columns):
@@ -29,13 +30,17 @@ def getStartDateOfPeriod(periodInWeeks) -> dt.datetime:
 
 def sales_within_period(cardcode, periodInWeeks):
     start_date = getStartDateOfPeriod(periodInWeeks)
-    query = {"$and":[{"supplier": cardcode}, {"docdate":{"$gt":start_date}}]}
+    query = {"$and":[{"supplier": cardcode}, {"docdate":{"$gte":start_date}}]}
     return query
 
-def last_docnum(from_date: str, date_format: str):
-    start_date=dt.datetime.strptime(from_date,date_format)
+def customer_sales_within_period(cardcode, periodInWeeks):
+    start_date = getStartDateOfPeriod(periodInWeeks)
+    query = {"$and":[{"cardcode": cardcode}, {"docdate":{"$gte":start_date}}]}
+    return query
+
+def last_docnum(from_date: dt.datetime):
     pipeline = [
-        {"$match":{"docdate":{"$gt":start_date}}},
+        {"$match":{"docdate":{"$gt":from_date}}},
         {"$project":{"docnum":1, "week_num":{"$isoWeek":"$docdate"}}},
         {"$sort":{"docnum":pymongo.DESCENDING}},
         {"$limit":1}
@@ -179,6 +184,38 @@ class CacheDao:
         columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
         outputDf.rename(columns=columns_renamed, inplace=True)
         return outputDf
+
+    def getItemsBoughtByClient(self, cardcode, periodInWeeks):
+        df = self.find_query(customer_sales_within_period(cardcode, periodInWeeks))
+        masterdata = fetch_master_itemlist()
+
+        df["c"]=[getMondayOf(row.docdate).strftime(self.DATE_FMT) for row in df.itertuples()]
+        index_fields=["itemcode", "dscription"]
+        values_fields=["quantity"]
+        columns_fields=["c"]
+        NB_WEEKS=4
+        pvdf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+        outputDf=pd.DataFrame(pvdf.to_records())
+        column_labels = df["c"].unique().tolist()
+        column_labels.sort(reverse=True)
+        labels_count=len(column_labels)
+        ind_fields_count=len(index_fields)
+        shortened_col_labels = list(map(lambda x:x[5:],column_labels))
+        columns_renamed = {k:v for k,v in zip(build_label(values_fields, column_labels), shortened_col_labels)}
+        added_displayed_cols = ["occurences", "total","moy"]
+        outputDf.rename(columns=columns_renamed, inplace=True)
+        if NB_WEEKS<labels_count:
+          last_weeks_label="last{}w".format(NB_WEEKS)
+          outputDf[last_weeks_label]=[functools.reduce(lambda a,b:a+b, map(lambda x: 1 if row[x]>0 else 0, range(ind_fields_count+labels_count-NB_WEEKS,ind_fields_count+labels_count))) for row in outputDf.itertuples(index=False)]
+          added_displayed_cols = [last_weeks_label] + added_displayed_cols
+        outputDf["occurences"]=[functools.reduce(lambda a,b:a+b, map(lambda x: 1 if row[x]>0 else 0, range(ind_fields_count,ind_fields_count+labels_count))) for row in outputDf.itertuples(index=False)]
+        outputDf["total"]=outputDf.loc[:,shortened_col_labels].sum(axis=1)
+        outputDf["moy"]=outputDf["total"]/outputDf["occurences"]
+        outputDf = outputDf.sort_values(["occurences"], ascending=[0])
+        out_cols=[*index_fields, "onhand","pcb_achat",*shortened_col_labels,*added_displayed_cols,"categorie"]
+        merged = pd.merge(outputDf.loc[:,index_fields+shortened_col_labels+added_displayed_cols], masterdata.loc[:,["itemcode", "onhand","categorie", "pcb_achat"]],
+          on=["itemcode"])
+        return merged.loc[:,out_cols]
 
 
 

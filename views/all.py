@@ -2,9 +2,10 @@
 from flask import Blueprint, request, jsonify
 from flask import send_from_directory
 
-from app.flask_helpers import build_response, send_file_response
-from app.xlsxwriter_utils import to_size_col, build_formats_for
+from app.utils.flask_helpers import build_response, send_file_response
+from app.utils.xlsxwriter_utils import to_size_col, build_formats_for
 from app.dao import dao
+from app.cache_dao import cache_dao
 from xlsxwriter.utility import xl_rowcol_to_cell
 import datetime as dt
 import pandas as pd
@@ -150,7 +151,7 @@ def historique_client(cardcode):
     #cardname = posted_data["cardname"]
     output = BytesIO()
     periodInWeeks = 10
-    siDf = dao.getItemsBoughtByClient(cardcode, periodInWeeks)
+    siDf = cache_dao.getItemsBoughtByClient(cardcode, periodInWeeks)
     siDf = siDf.sort_values(["categorie", "dscription"], ascending=[1,1])
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
       output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_fmts)

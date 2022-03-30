@@ -1,6 +1,6 @@
 from flask import Blueprint
 from flask import jsonify, request, current_app
-from app.flask_helpers import build_response
+from app.utils.flask_helpers import build_response
 from app.dao import dao
 from app.cache import compute_from_importFile
 import os, json, re

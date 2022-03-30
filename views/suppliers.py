@@ -1,11 +1,13 @@
 from flask import Blueprint
 from flask import jsonify, request
-from app.flask_helpers import build_response, send_file_response
+
 from app.dao import dao
 from app.cadencier import format_to_excel
-from app.xlsxwriter_utils import build_formats_for
+
+from app.utils.flask_helpers import build_response, send_file_response
+from app.utils.xlsxwriter_utils import build_formats_for
+from app.utils.metrics_helpers import substract_days_from_today
 from app.cache import compute_receptions_from_date
-from app.metrics_helpers import substract_days_from_today
 from app.cache_dao import cache_dao
 
 from io import BytesIO

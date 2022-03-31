@@ -81,6 +81,9 @@ class CacheDao:
     
     def init_app(self, app) -> None:
         self.config={k:v for k,v in map(lambda k: (k, app.config[k]), self.keys)}
+        self._client = pymongo.MongoClient(self.config[self.URI])
+    def get_client(self):
+        return self._client
 
     def get_collection_from_db(self, client):
         return client[self.config[self.DB]][self.config[self.COLLECTION]]
@@ -94,10 +97,10 @@ class CacheDao:
         return foundData
 
     def with_collection(self, computation) -> pd.DataFrame:
-        with pymongo.MongoClient(self.config[self.URI]) as mg_client:
-            collection_data = self.get_collection_from_db(mg_client)
-            result = computation(collection_data)
-            return result
+        mg_client = self.get_client() #with pymongo.MongoClient(self.config[self.URI]) as mg_client:
+        collection_data = self.get_collection_from_db(mg_client)
+        result = computation(collection_data)
+        return result
 
     def deleteFromQuery(self, query) -> None:
         result = self.with_collection(lambda data: data.delete_many(query))

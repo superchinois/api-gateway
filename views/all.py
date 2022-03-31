@@ -169,5 +169,8 @@ def get_last_updated():
 def update_cache_data():
   last_docnum = cache_dao.last_record()["docnum"]
   updated_data = queryUpdateCache.get_data_from_sap_as_df(last_docnum)
-  cache_dao.importFromDataframe(updated_data)
-  return build_response(dao.dfToJson(updated_data))
+  if updated_data.empty:
+    return jsonify(message="no new data"), 204
+  else:
+    cache_dao.importFromDataframe(updated_data)
+    return build_response(dao.dfToJson(updated_data))

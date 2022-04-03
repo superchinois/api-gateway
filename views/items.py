@@ -253,7 +253,7 @@ def compute_item_sales(itemcode):
   #periods = compute_months_dict_betweenDates(fromDate,toDate)
   #commaJoined=toJoinedString(",")
   #itemcodes = commaJoined([itemcode])
-  histo_item = cache_dao.getSalesForItem(itemcode, fromDate, toDate)#dao.compute_sales_for_itemcodes(itemcodes, periods)
+  histo_item = cache_dao.compute_sales_for_itemcode(itemcode, fromDate, toDate)#dao.compute_sales_for_itemcodes(itemcodes, periods)
   output = BytesIO()
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     resize_cols = [

@@ -6,7 +6,7 @@ import itertools
 import functools
 import numpy as np
 import json
-from app.utils.query_utils import convertSerieToDataArray
+from app.utils.query_utils import convertSerieToDataArray, build_pivot_labels,compute_months_dict_betweenDates
 from app.cache import fetch_master_itemlist
 
 def build_label(values, columns):
@@ -44,6 +44,14 @@ def last_docnum(from_date: dt.datetime):
         {"$project":{"docnum":1, "timestamp":{"$dateToString": {"format":"%Y-%m-%dT%H:%M:%S", "date":"$isodate"}}}},
         {"$sort":{"docnum":pymongo.DESCENDING}},
         {"$limit":1}
+    ]
+    options={}
+    return pipeline, options
+
+def get_historical_sales_for_itemcode(itemcode:str, from_date: dt.datetime, to_date: dt.datetime):
+    pipeline = [
+        {"$match":{"$and": [{"itemcode": itemcode}, {"docdate":{"$gte":from_date}}, {"docdate":{"$lte":to_date}}]}},
+        {"$project":{"cardname":1, "quantity":1, "year":{"$year":"$docdate"}, "month":{"$month":"$docdate"}}},
     ]
     options={}
     return pipeline, options
@@ -240,6 +248,46 @@ class CacheDao:
           on=["itemcode"])
         return merged.loc[:,out_cols]
 
+    def compute_sales_for_itemcode(self, itemcode, fromDate, toDate):
+        df = pd.DataFrame(list(self.apply_aggregate(*get_historical_sales_for_itemcode(itemcode, fromDate, toDate))))
+        periods = compute_months_dict_betweenDates(fromDate,toDate)
+        index_fields = ["cardname"]
+        values_fields = ['quantity']
+        columns_fields = ['year','month']
+        pvtable = pd.pivot_table(df, index=index_fields,
+        values=values_fields,
+        columns=columns_fields,
+        aggfunc=[np.sum],
+        fill_value=0)
+        df1 = pd.DataFrame(pvtable.to_records())
+        date_labels=[]
+        for (y,m) in periods.items():
+            date_labels = date_labels + ["{}-{}".format(str(x[0]),str(x[1]).zfill(2)) for x in itertools.product([y], m)]
+
+        quantity_labels = []
+        for (y,m) in periods.items():
+            quantity_labels = quantity_labels + build_pivot_labels(["quantity"], [y], m)
+
+        df1.rename(columns={k:v for (k,v) in zip(quantity_labels, date_labels)},inplace=True)
+        df_columns = df1.columns.values.tolist() 
+        for date in date_labels:
+            if date not in df_columns:
+                df1[date]=0
+
+        dates = df1.columns.tolist()[1:]
+        dates.sort(reverse=True)
+        df1["total"]=df1.loc[:,date_labels].sum(axis=1)
+        cols = ["total"]+date_labels
+        ALL_CLIENTS_LABEL = " TOTAL CLIENTS"
+        result_df = df1.append(pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols), ignore_index=True)
+        result_df["freq"]=result_df.loc[:,date_labels].gt(0).sum(axis=1)
+        past_months=dates[1:]
+        result_df["moy"]=result_df.loc[:,past_months].replace(0, np.nan).mean(axis=1, skipna=True)
+        result_df["remplis."]=(result_df[dates[0]]-result_df["moy"])/result_df["moy"]
+        result_df=result_df.sort_values(["freq","total"], ascending=[0,0])
+
+        output_cols = ["cardname","total","freq"]+dates+["moy", "remplis."]
+        return result_df.loc[:, output_cols]
 
 
 cache_dao = CacheDao()

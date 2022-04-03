@@ -248,12 +248,12 @@ def compute_item_sales(itemcode):
   itemname = get_first_values(masterdata.query("itemcode=='{}'".format(itemcode)), "itemname")
   delta_back=122
   delta_back=dt.timedelta(days=delta_back)
-  toDate   = dt.date.today()
+  toDate   = dt.datetime.now()
   fromDate = (toDate - delta_back).replace(day=1)
-  periods = compute_months_dict_betweenDates(fromDate,toDate)
-  commaJoined=toJoinedString(",")
-  itemcodes = commaJoined([itemcode])
-  histo_item = dao.compute_sales_for_itemcodes(itemcodes, periods)
+  #periods = compute_months_dict_betweenDates(fromDate,toDate)
+  #commaJoined=toJoinedString(",")
+  #itemcodes = commaJoined([itemcode])
+  histo_item = cache_dao.getSalesForItem(itemcode, fromDate, toDate)#dao.compute_sales_for_itemcodes(itemcodes, periods)
   output = BytesIO()
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     resize_cols = [

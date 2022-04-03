@@ -117,6 +117,9 @@ class CacheDao:
         data_to_import = dataframe.to_dict("records")
         self.with_collection(lambda data: data.insert_many(data_to_import))
 
+    def getSalesForItem(self, itemcode, fromDate, toDate):
+        return self.find_query(sales_for_item_between_dates(itemcode, fromDate, toDate))
+
     def getWeeklySales(self, cardcode, periodInWeeks):
         sales_df = self.find_query(sales_within_period(cardcode, periodInWeeks))
         sales_df["c"] = [getMondayOf(row.docdate).strftime(self.DATE_FMT) for row in sales_df.itertuples()]
@@ -141,7 +144,7 @@ class CacheDao:
         return result.set_index("itemcode"), dates_displayed
 
     def getSalesStatsforItem(self, itemcode, fromDate, toDate, movingAvg=0):
-        df = self.find_query(sales_for_item_between_dates(itemcode, fromDate, toDate))
+        df = self.getSalesForItem(itemcode, fromDate, toDate)
         index_fields=["docdate", "itemcode"]
         values_fields=["quantity", "linetotal"]
         columns_fields=[]

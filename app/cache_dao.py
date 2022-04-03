@@ -56,21 +56,6 @@ def sales_for_items_between_dates(itemcodes, fromDate, toDate):
     query={"$and":[{"itemcode":{"$in": itemcodes}}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
     return query
 
-def importFromCsv(config):
-    mongo_uri, db_name, collection_name = config
-    def _load_file(csvFilename):
-        dataframe = pd.read_csv(csvFilename, sep=";", dtype={"itemcode":str})
-        dataframe["isodate"] = [toIsoFormat(row.docdate, row.doctime) for row in dataframe.itertuples()]
-        dataframe['isodate'] = pd.to_datetime(dataframe['isodate'])
-        dataframe['docdate'] = pd.to_datetime(dataframe['docdate'])
-        dataframe.fillna("", inplace=True)
-        data_to_import = dataframe.to_dict("records")
-        with pymongo.MongoClient(mongo_uri) as mg_client:
-            tags_db = get_collection_from_db(db_name, collection_name)(mg_client)
-            tags_db.insert_many(data_to_import)
-            
-    return _load_file
-
 class CacheDao:
     keys = ["MONGO_URI", "MONGO_DATABASE", "MONGO_COLLECTION"]
     URI, DB, COLLECTION = keys

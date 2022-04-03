@@ -313,8 +313,6 @@ class SapDao:
       fields = ["_pdn1.itemcode"
                 #,"_pdn1.linenum"
                 ,"_opdn.docdate"
-                ,"year(_opdn.docdate) as year"
-                ,"datepart(wk, _opdn.docdate) as week"
                 ,"_opdn.docnum"
                 ,"_opdn.numatcard"
                 ,"_opdn.cardcode"
@@ -324,7 +322,11 @@ class SapDao:
                 ,"_pdn1.u_dluo"
                 ,"_pdn1.dscription"
                 ,"_itm1.price"
-                ,"_pdn1.serialnum"]
+                ,"_pdn1.serialnum"
+                ,"year(_opdn.docdate) as year"
+                ,"datepart(wk, _opdn.docdate) as week"
+                ] # This order is used in metrics_helpers.py 
+                  #[compute_last_lot line 94, select_items line 136, reduce_dates_to_string line 254]
       entree_march_params={
       'fields':fields,
       'tables':"pdn1 _pdn1",

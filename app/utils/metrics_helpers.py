@@ -91,7 +91,7 @@ def compute_last_lot(itemcode, onhand, dluo_array):
   a remanining quantity of the oldest lot as a double
 
   '''
-  QTY_RECEIPT_INDEX=9
+  QTY_RECEIPT_INDEX=7
   array = onhand + list(map(lambda x:x[QTY_RECEIPT_INDEX], dluo_array))
   remainings=[]
   functools.reduce(lambda x,y:reduit_acc(x,y, remainings), array)
@@ -133,7 +133,7 @@ def select_items(receptions_vector, days_ahead):
     return (date-today).days
   def get_dluo(r):
     RECEPTION_INDEX=  3
-    DLUO_INDEX     =  8
+    DLUO_INDEX     =  6
     LAST_ELT       = -1
     receptions_list = reversed(r[1][RECEPTION_INDEX])
     dluo = dt.date.min

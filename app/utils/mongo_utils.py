@@ -18,10 +18,6 @@ class SapQuery:
   identity     = lambda x: x
   inverseValue = lambda x: f"-{x}"
 
-  def inverse_fields(fields):
-    fields_to_inverse = ["quantity", "linetotal"]
-    return map(lambda x: [x[0], inverseValue] if x[0] in fields_to_inverse else x, fields)
-
   def assoc_fields_and(fields, transform):
     return list(map(lambda f: [f, transform], fields))
 
@@ -46,7 +42,7 @@ class SapQuery:
   }
   fields = [
     assoc_fields_and(["itemcode", "dscription", "quantity", "linetotal", "grossbuypr", "targettype"], identity), # t0
-    assoc_fields_and(["docnum", "docentry", "docdate", "doctime", "cardname"], identity), # t1
+    assoc_fields_and(["docnum", "docentry", "docdate", "doctime", "cardname", "discprcnt"], identity), # t1
     [["itmsgrpcod", identity],["cardcode", renameAs("supplier")]], # t2
     [["cardcode", identity]] #t3
   ]

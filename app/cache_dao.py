@@ -138,32 +138,35 @@ class CacheDao:
 
     def getSalesStatsforItem(self, itemcode, fromDate, toDate, movingAvg=0):
         df = self.getSalesForItem(itemcode, fromDate, toDate)
-        index_fields=["docdate", "itemcode"]
-        values_fields=["quantity", "linetotal"]
-        columns_fields=[]
-        pivotDf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
-        outputDf=pd.DataFrame(pivotDf.to_records())
-        columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
-        outputDf.rename(columns=columns_renamed, inplace=True)
-        df = outputDf.sort_values(by=["docdate"])
-        result = {}
-        output_cols = ["docdate","quantity","linetotal"]
-        value_to_plot="quantity"
-        qstring="itemcode=='{}'"
-        masterdata = fetch_master_itemlist()
-        itemcodes=[itemcode]
-        for code in itemcodes:
-            ydata=df.query(qstring.format(code)).loc[:,output_cols].set_index("docdate")
-            start = ydata.index[0]
-            end = toDate
-            X = pd.date_range(start, end, freq='D')
-            Y = pd.Series(ydata[value_to_plot], index=X)
-            item_data = masterdata.query(qstring.format(code))
-            data = convertSerieToDataArray(Y)
-            if movingAvg>1:
-                data = convertSerieToDataArray(Y.fillna(0.0).rolling(window=movingAvg).mean())
-            result[code] = {"itemname": item_data.itemname.tolist()[0],"data": data}
-        return json.dumps(result[itemcode])
+        if not df.empty:
+            index_fields=["docdate", "itemcode"]
+            values_fields=["quantity", "linetotal"]
+            columns_fields=[]
+            pivotDf = pd.pivot_table(df, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+            outputDf=pd.DataFrame(pivotDf.to_records())
+            columns_renamed={"('sum', 'quantity')":'quantity', "('sum', 'linetotal')":'linetotal'}
+            outputDf.rename(columns=columns_renamed, inplace=True)
+            df = outputDf.sort_values(by=["docdate"])
+            result = {}
+            output_cols = ["docdate","quantity","linetotal"]
+            value_to_plot="quantity"
+            qstring="itemcode=='{}'"
+            masterdata = fetch_master_itemlist()
+            itemcodes=[itemcode]
+            for code in itemcodes:
+                ydata=df.query(qstring.format(code)).loc[:,output_cols].set_index("docdate")
+                start = ydata.index[0]
+                end = toDate
+                X = pd.date_range(start, end, freq='D')
+                Y = pd.Series(ydata[value_to_plot], index=X)
+                item_data = masterdata.query(qstring.format(code))
+                data = convertSerieToDataArray(Y)
+                if movingAvg>1:
+                    data = convertSerieToDataArray(Y.fillna(0.0).rolling(window=movingAvg).mean())
+                result[code] = {"itemname": item_data.itemname.tolist()[0],"data": data}
+            return result[itemcode]
+        else:
+            return {}
 
     def getImportSales(self, cardcode, periodInWeeks):
         display_cols=["itemname", "sellitem", "categorie", "vente", "achat", "revient","marge_theo", "marge_sap", "onhand", "onorder"]

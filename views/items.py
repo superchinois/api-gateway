@@ -148,7 +148,11 @@ def sales_stats(itemcode):
     result = cache_dao.getSalesStatsforItem(itemcode, fromDate, nowDate, int(movingAvg))
   else :
     result = cache_dao.getSalesStatsforItem(itemcode, fromDate, nowDate)
-  return build_response(result)
+
+  if result:
+    return build_response(json.dumps(result))
+  else:
+    return build_response("{}", status=204)
 
 @items.route('/items/stats/sales/<string:itemcode>/<string:date>', methods=['GET'])
 def salesForItemAtDate(itemcode, date):

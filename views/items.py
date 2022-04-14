@@ -279,6 +279,7 @@ def compute_receptions(itemcode):
     return delta
 
   def compute_last_receptions(onhand, receptions):
+    YEAR_IN_DAYS=365
     stock_quantities = [onhand] + receptions.quantity.values.tolist()
     remainings=[]
     functools.reduce(lambda x,y:reduit_acc(x,y, remainings), stock_quantities)
@@ -296,7 +297,7 @@ def compute_receptions(itemcode):
   if fromDateIso:
     cache.clear()
   if not fromDateIso:
-    delta_back=365*2
+    delta_back=2*YEAR_IN_DAYS
     fromDateIso=dluo_utils.substract_days_from_today(delta_back)
   if not selected_onhand:
     masterdata = fetch_master_itemlist()

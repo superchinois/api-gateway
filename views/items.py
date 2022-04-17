@@ -279,7 +279,6 @@ def compute_receptions(itemcode):
     return delta
 
   def compute_last_receptions(onhand, receptions):
-    YEAR_IN_DAYS=365
     stock_quantities = [onhand] + receptions.quantity.values.tolist()
     remainings=[]
     functools.reduce(lambda x,y:reduit_acc(x,y, remainings), stock_quantities)
@@ -291,7 +290,7 @@ def compute_receptions(itemcode):
       last_item_index = last_index+2
     current_active_receptions = receptions.iloc[0:last_item_index,:]
     return current_active_receptions
-
+  YEAR_IN_DAYS=365
   fromDateIso = request.args.get("from-date")
   selected_onhand = request.args.get("onhand")
   if fromDateIso:

@@ -132,7 +132,8 @@ def items_routing():
   if search_param:
     pattern='.*'+search_param.upper().replace(' ','.*')+'.*'
     result = master[master["itemname"].str.contains(pattern)]
-    return build_response(dao.dfToJson(result.query("sellitem=='Y'")))
+    result["itemname_len"] = [len(row.itemname) for row in result.itertuples()]
+    return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
   if supplier_param:
     items = master.query("cardcode=='{}' and sellitem=='Y'".format(supplier_param))
     return build_response(dao.dfToJson(items.sort_values(by=["itemname"])))

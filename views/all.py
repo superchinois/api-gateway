@@ -163,7 +163,7 @@ def historique_client(cardcode):
   else:
     return jsonify(message="The request does not contain json data"), 400
 
-@bp.route('/historique/<string:cardcode>/stats', methods=["GET"])
+@bp.route('/historique/<string:cardcode>/stats', methods=["POST"])
 def chiffre_affaire_client(cardcode):
   def add_fields(dataframe):
     dataframe["revient"] = [row.quantity*row.grossbuypr for row in dataframe.itertuples()]
@@ -192,6 +192,12 @@ def chiffre_affaire_client(cardcode):
       return worksheet
     return _output_excel
 
+  def extract_column_labels(dataframe):
+    def _extract(pattern):
+      columns = dataframe.columns.values.tolist()
+      return list(filter(lambda label: pattern in l, columns))
+    return _extract
+
   # END OF FUNCTION DEFINITIONS
   months_number = 6
   six_months_ago_from = rewind_x_months(months_number)
@@ -214,10 +220,9 @@ def chiffre_affaire_client(cardcode):
   r = map(lambda y: map(lambda m: f"{str(y)}-{str(m).zfill(2)}",months[y]), months.keys())
   months = list(functools.reduce(lambda x,y:list(x)+list(y), r))
   
-  columns = by_cat_df.columns.values.tolist()
-
-  linetotals = list(filter(lambda l: "linetotal/" in l, columns))
-  revients   = list(filter(lambda l: "revient/" in l, columns))
+  extract_label = extract_column_labels(by_cat_df)
+  linetotals = extract_label("linetotal/")
+  revients   = extract_label("revient/")
   all_months = list(map(lambda x:f"linetotal/{x}", months))
   missing_months = set(all_months)-set(linetotals)
 
@@ -225,7 +230,7 @@ def chiffre_affaire_client(cardcode):
       by_cat_df[m]=0
       by_items_df[m]=0
 
-  rrr=list(zip(linetotals, map(lambda l: l.replace("linetotal", "caht"), linetotals)))
+  rrr=list(zip(linetotals, map(lambda l: l.replace("linetotal", "caht"), extract_column_labels(by_cat_df)("linetotal/"))))
   add_revenues_metrics(by_items_df)
   by_cat = add_revenues_metrics(by_cat_df.fillna(0.0))
   total_ca = by_cat.caht.sum()
@@ -233,6 +238,7 @@ def chiffre_affaire_client(cardcode):
   displayed_order = ['itemcode','itemname','categorie','freq', 'caht', 'revient', 'marg_val'] + sorted(all_months, reverse=True)
 
   display_order   = ['categorie','ratio', 'caht', 'revient', 'marg_val'] + sorted(all_months, reverse=True)
+  
   by_items_df_out = by_items_df.sort_values(by=["marg_val","freq","categorie", "itemname"], ascending=[0,0,1,1]
                     ).loc[:,displayed_order].rename(columns={k:v for k,v in rrr})
   by_cat_df_out = by_cat.loc[:,display_order].rename(columns={k:v for k,v in rrr})

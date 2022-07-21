@@ -195,7 +195,7 @@ def chiffre_affaire_client(cardcode):
   def extract_column_labels(dataframe):
     def _extract(pattern):
       columns = dataframe.columns.values.tolist()
-      return list(filter(lambda label: pattern in l, columns))
+      return list(filter(lambda label: pattern in label, columns))
     return _extract
 
   # END OF FUNCTION DEFINITIONS
@@ -230,7 +230,7 @@ def chiffre_affaire_client(cardcode):
       by_cat_df[m]=0
       by_items_df[m]=0
 
-  rrr=list(zip(linetotals, map(lambda l: l.replace("linetotal", "caht"), extract_column_labels(by_cat_df)("linetotal/"))))
+  rrr=list(zip(linetotals, map(lambda label: label.replace("linetotal", "caht"), extract_column_labels(by_cat_df)("linetotal/"))))
   add_revenues_metrics(by_items_df)
   by_cat = add_revenues_metrics(by_cat_df.fillna(0.0))
   total_ca = by_cat.caht.sum()

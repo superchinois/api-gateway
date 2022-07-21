@@ -326,7 +326,7 @@ def build_months_labels(pdPeriodList):
 
 def build_renamed_labels(values, months_label):
     pivot_sum_tpl="('{}', Period('{}', 'M'))"
-    renamed = {pivot_sum_tpl.format(x[0], x[1]):f"{x[0]}/{x[1]}" for x in itertools.product(values, nonEmptyMonths)}
+    renamed = {pivot_sum_tpl.format(x[0], x[1]):f"{x[0]}/{x[1]}" for x in itertools.product(values, months_label)}
     return renamed
 
 def rename_labels(dataframe, values, dfForPeriods):

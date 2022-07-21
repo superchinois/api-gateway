@@ -5,9 +5,12 @@ from flask import send_from_directory
 from app.utils.flask_helpers import build_response, send_file_response
 from app.utils.xlsxwriter_utils import to_size_col, build_formats_for
 from app.utils.mongo_utils import queryUpdateCache
+from app.utils.metrics_helpers import add_revenues_metrics, pivot_on_items, pivot_on_categories,rewind_x_months
+from app.utils.query_utils import compute_months_dict_betweenDates
 from app.dao import dao
 from app.cache_dao import cache_dao
-from xlsxwriter.utility import xl_rowcol_to_cell
+from app.cache import fetch_master_itemlist
+from xlsxwriter.utility import xl_rowcol_to_cell, xl_col_to_name
 import datetime as dt
 import pandas as pd
 import os, json
@@ -159,6 +162,96 @@ def historique_client(cardcode):
     return send_file_response(output, f"historique_{cardcode}.xlsx")
   else:
     return jsonify(message="The request does not contain json data"), 400
+
+@bp.route('/historique/<string:cardcode>/stats', methods=["GET"])
+def chiffre_affaire_client(cardcode):
+  def add_fields(dataframe):
+    dataframe["revient"] = [row.quantity*row.grossbuypr for row in dataframe.itertuples()]
+    dataframe["month"] = [row.docdate.to_period('M') for row in dataframe.itertuples()]
+    return dataframe.copy()
+
+  def add_sum_cols(dataframe, rowstart, colstart, worksheet):
+    r,c = dataframe.shape
+    sum_headers_cols=list(map(lambda col: xl_col_to_name(col), range(colstart, c)))
+    row_start=rowstart
+    row_end=row_start+r
+    for current_col in sum_headers_cols:
+        worksheet.write_formula(f"{current_col}{row_start-1}", f"=sum({current_col}{row_start}:{current_col}{row_end})")
+
+  def set_output_excel(freeze_loc, autofilter_loc,start_row):
+    def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
+      r, c = dataframe.shape # number of rows and columns
+      dataframe.to_excel(writer, sheetname, index=False, startrow=start_row)
+      # Get the xlsxwriter workbook and worksheet objects.
+      workbook  = writer.book
+      formats = build_formats_for(workbook)
+      worksheet = writer.sheets[sheetname]
+      worksheet.freeze_panes(*freeze_loc)
+      worksheet.autofilter(*autofilter_loc,r,c-1)
+      apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
+      return worksheet
+    return _output_excel
+
+  # END OF FUNCTION DEFINITIONS
+  months_number = 6
+  today=dt.datetime.today()
+  date_from = rewind_x_months(months_number)(today)
+  qry = {"cardcode":cardcode, "docdate":{"$gte":date_from}}
+  customer_raw_data = cache_dao.find_query(qry)
+  #caracters_to_replace = [" ", "/", "'"]
+  #cardname = reduce(lambda x,y: x.replace(y, "_"), caracters_to_replace, customer_raw_data.iloc[0,:].cardname)
+  # Get data from mongo
+  masterdata = fetch_master_itemlist()
+  customer_raw_data = add_fields(customer_raw_data).merge(
+    masterdata.loc[:,["itemcode", "itemname", "categorie"]], on="itemcode", how="inner")
+  #
+  # PIVOT BY CATEGORIES AND ITEMS
+  #
+  by_items_df = pivot_on_items(customer_raw_data)
+  by_cat_df   = pivot_on_categories(customer_raw_data)
+  months = compute_months_dict_betweenDates(six_months_ago_from(today), to_date)
+  r = map(lambda y: map(lambda m: f"{str(y)}-{str(m).zfill(2)}",months[y]), months.keys())
+  months = list(reduce(lambda x,y:list(x)+list(y), r))
+  
+  columns = by_cat_df.columns.values.tolist()
+
+  linetotals = list(filter(lambda l: "linetotal/" in l, columns))
+  revients   = list(filter(lambda l: "revient/" in l, columns))
+  all_months = list(map(lambda x:f"linetotal/{x}", months))
+  missing_months = set(all_months)-set(linetotals)
+
+  for m in missing_months:
+      by_cat_df[m]=0
+      by_items_df[m]=0
+
+  rrr=list(zip(linetotals, map(lambda l: l.replace("linetotal", "caht"), linetotals)))
+  add_revenues_metrics(by_items_df)
+  by_cat = add_revenues_metrics(by_cat_df.fillna(0.0))
+  total_ca = by_cat.caht.sum()
+  by_cat["ratio"] = [r.caht/total_ca for r in by_cat.itertuples()]
+  displayed_order = ['itemcode','itemname','categorie','freq', 'caht', 'revient', 'marg_val'] + sorted(all_months, reverse=True)
+
+  display_order   = ['categorie','ratio', 'caht', 'revient', 'marg_val'] + sorted(all_months, reverse=True)
+  by_items_df_out = by_items_df.sort_values(by=["marg_val","freq","categorie", "itemname"], ascending=[0,0,1,1]
+                    ).loc[:,displayed_order].rename(columns={k:v for k,v in rrr})
+  by_cat_df_out = by_cat.loc[:,display_order].rename(columns={k:v for k,v in rrr})
+
+  output_categories = set_output_excel((2,5), (1,0), 1)
+  output_xls_items  = set_output_excel((2,4), (1,0), 1)
+  output = BytesIO()
+  with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    cat_sizes = [["A:A", to_size_col(2), "no_format"], ["B:B", to_size_col(1), "percents"],
+                ["C:E", to_size_col(1.3), "currency"], ["F:L", to_size_col(1.5), "no_format"]]
+    ws_cat = output_categories(writer, "CATEGORIES", by_cat_df_out, cat_sizes, apply_formats_1)
+    add_sum_cols(by_cat_df_out, 2, 2, ws_cat)
+    items_sizes=[["B:B", to_size_col(6), "no_format"], ["C:C", to_size_col(2), "no_format"], 
+                ["E:G", to_size_col(1.3), "currency"], ["H:N", to_size_col(1.5), "no_format"]]
+    ws_items = output_xls_items(writer, "ITEMS", by_items_df_out, items_sizes, apply_formats_1)
+    add_sum_cols(by_items_df_out, 2, 4, ws_items)
+
+  return send_file_response(output, f"ca_{cardcode}.xlsx")
+
+
 
 @bp.route('/cache/last_updated', methods=["GET"])
 def get_last_updated():

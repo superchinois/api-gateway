@@ -89,8 +89,8 @@ def apply_format(worksheet, row, col, cell_format):
 def build_formats_for(workbook):
   # Add some cell formats.
   format1 = workbook.add_format({'num_format': '#,##0.00'})
-  format2 = workbook.add_format({'num_format': '0%;[RED] -0%'})
-  format3 = workbook.add_format({'num_format': '#,##0.00 [$€-40C];[RED]-#,##0.00 [$€-40C]'})
+  format2 = workbook.add_format({'num_format': '0.0%;[RED] -0.0%', 'align':'center'})
+  format3 = workbook.add_format({'num_format': '#,##0.00 [$€-40C];[RED]-#,##0.00 [$€-40C]', 'align':'center'})
   error_fmt = workbook.add_format({'bg_color': '#cc0000','font_color': '#ffffff'})
   neutral_format=workbook.add_format({'bg_color': '#ffffcc','font_color': '#996600'})
   warning_format=workbook.add_format({'bg_color':'#f2cbf8','font_color': '#7c007c'})

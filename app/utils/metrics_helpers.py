@@ -27,6 +27,12 @@ def substract_days_from_today(nb_of_days):
   fromDate = (toDate - delta_back).replace(day=1)
   return fromDate
 
+def rewind_x_months(month_ago):
+  DAYS_IN_MONTH=30
+  def _rewind(date_from):
+    return (date_from - dt.timedelta(days=month_ago*DAYS_IN_MONTH)).replace(day=1)
+  return _rewind
+
 def compute_ols(dataframe):
   '''
   Computes metrics for a dataframe containing sales data for a set 
@@ -274,3 +280,56 @@ def compute_receptions_vector(masterdata, receptions, added_dluo_df=None):
     bbd.init_with_dataframe(added_dluo_df)
     fill_in_blank_dluos(receptions_vector)(bbd)
   return receptions_vector
+
+
+#
+# PIVOT ON ITEMS
+#
+def pivot_on_items(mongo_data_df):
+    values=["linetotal", "revient"]
+    index=["itemcode", "itemname" ,"categorie"]
+    columns=["month"]
+    pivot = pd.pivot_table(mongo_data_df, values, index, columns, aggfunc='sum')
+    by_items_df = pd.DataFrame(pivot.fillna(0).to_records())
+    by_items_df = rename_labels(by_items_df, values, mongo_data_df)
+    return by_items_df
+
+#
+# PIVOT ON CATEGORIES
+#
+def pivot_on_categories(mongo_data_df):
+    values=["linetotal", "revient"]
+    index=["categorie"]
+    columns=["month"]
+    pivot = pd.pivot_table(customer_raw_data, values, index, columns, aggfunc='sum')
+    by_cat_df = pd.DataFrame(pivot.fillna(0).to_records())
+    by_cat_df = rename_labels(by_cat_df, values, mongo_data_df)
+    return by_cat_df
+
+def add_revenues_metrics(dataframe):
+    columns = dataframe.columns.values.tolist()
+    linetotals = list(filter(lambda l: "linetotal/" in l, columns))
+    revients = list(filter(lambda l: "revient/" in l, columns))
+    np1 = dataframe.loc[:,linetotals].fillna(0).to_numpy()
+    np2 = dataframe.loc[:,revients].fillna(0).to_numpy()
+    dataframe["freq"] = np.count_nonzero(np1, axis=1)
+    dataframe["caht"] = np.sum(np1, axis=1)
+    dataframe["revient"] = np.sum(np2, axis=1)
+    dataframe["marg_val"] = [r.caht-r.revient for r in dataframe.itertuples()]
+    return dataframe
+
+def build_months_labels(pdPeriodList):
+    date_regex=r'\d{4}-\d{2}'
+    nonEmptyMonths = list(map(lambda x:re.findall(date_regex, x.strftime("%Y-%m"))[0], pdPeriodList))
+    return nonEmptyMonths
+
+def build_renamed_labels(values, months_label):
+    pivot_sum_tpl="('{}', Period('{}', 'M'))"
+    renamed = {pivot_sum_tpl.format(x[0], x[1]):f"{x[0]}/{x[1]}" for x in itertools.product(values, nonEmptyMonths)}
+    return renamed
+
+def rename_labels(dataframe, values, dfForPeriods):
+    periods = dfForPeriods["month"].unique().tolist()
+    months_label = build_months_labels(periods)
+    renamed = build_renamed_labels(values, months_label)
+    return dataframe.rename(columns=renamed)

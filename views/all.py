@@ -210,7 +210,7 @@ def chiffre_affaire_client(cardcode):
   #
   by_items_df = pivot_on_items(customer_raw_data)
   by_cat_df   = pivot_on_categories(customer_raw_data)
-  months = compute_months_dict_betweenDates(date_from, to_date)
+  months = compute_months_dict_betweenDates(date_from, today)
   r = map(lambda y: map(lambda m: f"{str(y)}-{str(m).zfill(2)}",months[y]), months.keys())
   months = list(reduce(lambda x,y:list(x)+list(y), r))
   

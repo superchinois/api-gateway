@@ -13,7 +13,7 @@ from app.cache import fetch_master_itemlist
 from xlsxwriter.utility import xl_rowcol_to_cell, xl_col_to_name
 import datetime as dt
 import pandas as pd
-import os, json
+import os, json, functools
 
 from io import BytesIO
 
@@ -200,7 +200,7 @@ def chiffre_affaire_client(cardcode):
   qry = {"cardcode":cardcode, "docdate":{"$gte":date_from}}
   customer_raw_data = cache_dao.find_query(qry)
   #caracters_to_replace = [" ", "/", "'"]
-  #cardname = reduce(lambda x,y: x.replace(y, "_"), caracters_to_replace, customer_raw_data.iloc[0,:].cardname)
+  #cardname = functools.reduce(lambda x,y: x.replace(y, "_"), caracters_to_replace, customer_raw_data.iloc[0,:].cardname)
   # Get data from mongo
   masterdata = fetch_master_itemlist()
   customer_raw_data = add_fields(customer_raw_data).merge(
@@ -212,7 +212,7 @@ def chiffre_affaire_client(cardcode):
   by_cat_df   = pivot_on_categories(customer_raw_data)
   months = compute_months_dict_betweenDates(date_from, today)
   r = map(lambda y: map(lambda m: f"{str(y)}-{str(m).zfill(2)}",months[y]), months.keys())
-  months = list(reduce(lambda x,y:list(x)+list(y), r))
+  months = list(functools.reduce(lambda x,y:list(x)+list(y), r))
   
   columns = by_cat_df.columns.values.tolist()
 

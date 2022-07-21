@@ -302,7 +302,7 @@ def pivot_on_categories(mongo_data_df):
     values=["linetotal", "revient"]
     index=["categorie"]
     columns=["month"]
-    pivot = pd.pivot_table(customer_raw_data, values, index, columns, aggfunc='sum')
+    pivot = pd.pivot_table(mongo_data_df, values, index, columns, aggfunc='sum')
     by_cat_df = pd.DataFrame(pivot.fillna(0).to_records())
     by_cat_df = rename_labels(by_cat_df, values, mongo_data_df)
     return by_cat_df

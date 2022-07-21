@@ -6,6 +6,7 @@ import math
 from itertools import chain
 import functools
 import numpy as np
+import re
 
 #
 # METRICS HELPER FUNCTIONS

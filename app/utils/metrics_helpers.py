@@ -3,7 +3,7 @@ import statsmodels.api as sm
 import datetime as dt
 from os.path import exists
 import math
-from itertools import chain
+import itertools
 import functools
 import numpy as np
 import re

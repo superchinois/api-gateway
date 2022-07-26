@@ -10,6 +10,7 @@ from app.utils.query_utils import compute_months_dict_betweenDates
 from app.dao import dao
 from app.cache_dao import cache_dao
 from app.cache import fetch_master_itemlist
+from app.cache import cache
 from xlsxwriter.utility import xl_rowcol_to_cell, xl_col_to_name
 import datetime as dt
 import pandas as pd
@@ -175,8 +176,10 @@ def chiffre_affaire_client(cardcode):
     sum_headers_cols=list(map(lambda col: xl_col_to_name(col), range(colstart, c)))
     row_start=rowstart
     row_end=row_start+r
+    SUM_FN_INDEX=109
     for current_col in sum_headers_cols:
-        worksheet.write_formula(f"{current_col}{row_start-1}", f"=sum({current_col}{row_start}:{current_col}{row_end})")
+        worksheet.write_formula(f"{current_col}{row_start-1}", 
+          f"=subtotal({SUM_FN_INDEX};{current_col}{row_start}:{current_col}{row_end})")
 
   def set_output_excel(freeze_loc, autofilter_loc,start_row):
     def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
@@ -197,6 +200,10 @@ def chiffre_affaire_client(cardcode):
       columns = dataframe.columns.values.tolist()
       return list(filter(lambda label: pattern in label, columns))
     return _extract
+
+  def build_col_formats(formats_data):
+    # formats_data element is of shape ["A:A", 5, "no_format"]
+    return list(map(lambda f: [f[0], to_size_col(f[1]), f[2]],formats_data))
 
   # END OF FUNCTION DEFINITIONS
   months_number = 6
@@ -229,8 +236,9 @@ def chiffre_affaire_client(cardcode):
   for m in missing_months:
       by_cat_df[m]=0
       by_items_df[m]=0
-
-  rrr=list(zip(linetotals, map(lambda label: label.replace("linetotal", "caht"), extract_column_labels(by_cat_df)("linetotal/"))))
+  
+  linetotals = extract_column_labels(by_cat_df)("linetotal/")
+  rrr=list(zip(linetotals, map(lambda label: label.replace("linetotal", "caht"), linetotals)))
   add_revenues_metrics(by_items_df)
   by_cat = add_revenues_metrics(by_cat_df.fillna(0.0))
   total_ca = by_cat.caht.sum()
@@ -247,12 +255,16 @@ def chiffre_affaire_client(cardcode):
   output_xls_items  = set_output_excel((2,4), (1,0), 1)
   output = BytesIO()
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    cat_sizes = [["A:A", to_size_col(2), "no_format"], ["B:B", to_size_col(1), "percents"],
-                ["C:E", to_size_col(1.3), "currency"], ["F:L", to_size_col(1.5), "no_format"]]
+    cat_sizes = build_col_formats([["A:A", 2, "no_format"], 
+                                   ["B:B", 1, "percents"],
+                                   ["C:E", 1.3, "currency"], 
+                                   ["F:L", 1.5, "no_format"]])
     ws_cat = output_categories(writer, "CATEGORIES", by_cat_df_out, cat_sizes, apply_formats_1)
     add_sum_cols(by_cat_df_out, 2, 2, ws_cat)
-    items_sizes=[["B:B", to_size_col(6), "no_format"], ["C:C", to_size_col(2), "no_format"], 
-                ["E:G", to_size_col(1.3), "currency"], ["H:N", to_size_col(1.5), "no_format"]]
+    items_sizes=build_col_formats([["B:B", 6, "no_format"], 
+                                   ["C:C", 2, "no_format"], 
+                                   ["E:G", 1.3, "currency"], 
+                                   ["H:N", 1.5, "no_format"]])
     ws_items = output_xls_items(writer, "ITEMS", by_items_df_out, items_sizes, apply_formats_1)
     add_sum_cols(by_items_df_out, 2, 4, ws_items)
 
@@ -274,3 +286,10 @@ def update_cache_data():
   else:
     cache_dao.importFromDataframe(updated_data)
     return build_response(dao.dfToJson(updated_data))
+
+@bp.route('/cache/clear', methods=["POST"])
+def clear_cache_data():
+  cache.clear()
+  return jsonify(message="cache has been cleared"), 200
+
+

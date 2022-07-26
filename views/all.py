@@ -179,7 +179,7 @@ def chiffre_affaire_client(cardcode):
     SUM_FN_INDEX=109
     for current_col in sum_headers_cols:
         worksheet.write_formula(f"{current_col}{row_start-1}", 
-          f"=subtotal({SUM_FN_INDEX};{current_col}{row_start}:{current_col}{row_end})")
+          f"=subtotal({SUM_FN_INDEX},{current_col}{row_start}:{current_col}{row_end})")
 
   def set_output_excel(freeze_loc, autofilter_loc,start_row):
     def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):

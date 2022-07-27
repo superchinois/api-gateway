@@ -251,7 +251,7 @@ def compute_item_sales(itemcode):
       worksheet.set_column(col, size, formats[fmt])
   masterdata = fetch_master_itemlist()
   itemname = get_first_values(masterdata.query("itemcode=='{}'".format(itemcode)), "itemname")
-  delta_back=2*365
+  delta_back=122
   delta_back=dt.timedelta(days=delta_back)
   toDate   = dt.datetime.now()
   fromDate = (toDate - delta_back).replace(day=1)

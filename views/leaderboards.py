@@ -41,11 +41,22 @@ def mongo_sales_atDate(at_date):
     options={}
     return pipeline, options
 
-@leaderboards.route("/customers", methods=["GET"])
+def set_dataframe_for_docnum(dataframe):
+    def get_docnums(cardcode, cardname):
+        cleaned_cardname = cardname.replace("'", "\\'")
+        return dataframe.query(f"cardcode=='{cardcode}' and cardname=='{cleaned_cardname}'").docnum.unique().tolist()
+    return get_docnums
+
+@leaderboards.route("/leaderboards/customers", methods=["GET"])
 def show_customers_leaderboard_of_the_day():
-    today = dt.datetime.now()
+    params = ["hour", "minute", "second", "microsecond"]
+    today = dt.datetime.today().replace(**{k:0 for k in params})
     raw_data = cache_dao.apply_aggregate(*mongo_sales_atDate(today))
     data_df = pd.DataFrame(list(raw_data))
     data_df["time"] = [str(row.isodate).split(" ")[1][0:5] for row in data_df.itertuples()]
-    json_data = data_df.to_json(orient="records", date_format="iso")
+    extract_docnums = set_dataframe_for_docnum(data_df)
+    custo_df = customers_leaderboard(data_df)
+    leaderboard = pd.DataFrame(custo_df.to_records(), columns=["cardcode", "cardname", "time", "linetotal"])
+    leaderboard["docnums"] = [extract_docnums(r.cardcode, r.cardname) for r in leaderboard.itertuples()]
+    json_data = leaderboard.to_json(orient="records", date_format="iso")
     return build_response(json_data)

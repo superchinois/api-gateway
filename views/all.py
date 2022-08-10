@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 from flask import send_from_directory
 
 from app.utils.flask_helpers import build_response, send_file_response
-from app.utils.xlsxwriter_utils import to_size_col, build_formats_for
+from app.utils.xlsxwriter_utils import to_size_col, set_output_excel, add_count_non_zero
 from app.utils.mongo_utils import queryUpdateCache
 from app.utils.metrics_helpers import add_revenues_metrics, pivot_on_items, pivot_on_categories,rewind_x_months
 from app.utils.query_utils import compute_months_dict_betweenDates
@@ -99,17 +99,6 @@ def apply_formats_2(sheetname, worksheet, formats, sizes, rows, columns, datafra
   for (col, size, fmt) in sizes:
       worksheet.set_column(col, size, formats[fmt])
 
-def output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
-  r, c = dataframe.shape # number of rows and columns
-  dataframe.to_excel(writer, sheetname)
-  # Get the xlsxwriter workbook and worksheet objects.
-  workbook  = writer.book
-  formats = build_formats_for(workbook)
-  worksheet = writer.sheets[sheetname]
-  worksheet.freeze_panes(1,3)
-  worksheet.autofilter(0,0,r,c)
-  apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
-
 @bp.route('/mouvements-forces', methods=["GET"])
 def stock_movements():
   date_from = request.args.get("date-from")
@@ -123,10 +112,12 @@ def stock_movements():
   siDf, rawSiDf, cashierSiDf = dao.getEntreeSortiesMarchandise(dateFrom)
   output = BytesIO()
   # Create a Pandas Excel writer using XlsxWriter as the engine.
+  start_row=0
+  output_excel = set_output_excel((1,3), (0,0),start_row, True)
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_formats_1)
     output_excel(writer, "Sheet2", rawSiDf, [["E:E",63, "no_format"] ,["F:F",to_size_col(1.55), "date1"]],apply_formats_1)
-    output_excel(writer, "Sheet3", cashierSiDf, [["C:C",to_size_col(3.93), "no_format"]],apply_formats_2)
+    worksheet = output_excel(writer, "Sheet3", cashierSiDf, [["C:C",to_size_col(3.93), "no_format"]],apply_formats_2)
   return send_file_response(output, f"si_{dateFrom}.xlsx")
 
 @bp.route('/historique/<string:cardcode>', methods=["POST"])
@@ -147,7 +138,8 @@ def historique_client(cardcode):
     itemcode_col = df_columns.get_loc("itemcode")
     for idx, row in enumerate(dataframe.itertuples()):
       if row.itemcode in promos:
-        worksheet.write(idx+1, itemcode_col+1, dataframe.iloc[idx, itemcode_col], formats["good"])
+        adjusted_index = idx+1 # +1 because output excel starts at row 2
+        worksheet.write(adjusted_index+1, itemcode_col+1, dataframe.iloc[adjusted_index, itemcode_col], formats["good"])
 
   # End of function definition
   
@@ -158,8 +150,10 @@ def historique_client(cardcode):
     periodInWeeks = 10
     siDf = cache_dao.getItemsBoughtByClient(cardcode, periodInWeeks)
     siDf = siDf.sort_values(["categorie", "dscription"], ascending=[1,1])
+    output_excel = set_output_excel((2,4), (1,1), 1, True)
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-      output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_fmts)
+      worksheet = output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_fmts)
+      add_count_non_zero(worksheet, siDf, 2, 5, 4)
     return send_file_response(output, f"historique_{cardcode}.xlsx")
   else:
     return jsonify(message="The request does not contain json data"), 400
@@ -180,20 +174,6 @@ def chiffre_affaire_client(cardcode):
     for current_col in sum_headers_cols:
         worksheet.write_formula(f"{current_col}{row_start-1}", 
           f"=subtotal({SUM_FN_INDEX},{current_col}{row_start}:{current_col}{row_end})")
-
-  def set_output_excel(freeze_loc, autofilter_loc,start_row):
-    def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
-      r, c = dataframe.shape # number of rows and columns
-      dataframe.to_excel(writer, sheetname, index=False, startrow=start_row)
-      # Get the xlsxwriter workbook and worksheet objects.
-      workbook  = writer.book
-      formats = build_formats_for(workbook)
-      worksheet = writer.sheets[sheetname]
-      worksheet.freeze_panes(*freeze_loc)
-      worksheet.autofilter(*autofilter_loc,r,c-1)
-      apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
-      return worksheet
-    return _output_excel
 
   def extract_column_labels(dataframe):
     def _extract(pattern):

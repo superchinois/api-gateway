@@ -4,7 +4,7 @@ from app.dao import dao
 from app.cache_dao import cache_dao
 from app.cache import fetch_master_itemlist, compute_receptions_from_date, cache
 from app.utils.flask_helpers import build_response, send_file_response
-from app.utils.xlsxwriter_utils import to_size_col, build_formats_for
+from app.utils.xlsxwriter_utils import to_size_col, set_output_excel, add_count_non_zero
 from app.utils.query_utils import get_first_values, compute_months_dict_betweenDates, toJoinedString, sales_for_groupCodes
 from app.utils.query_utils import build_period
 import app.utils.metrics_helpers as dluo_utils
@@ -43,16 +43,7 @@ def get_google_sheet_client(config):
 def get_working_sheet_id(config):
   return config["SHEET_ID"]
 
-def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
-    r, c = dataframe.shape # number of rows and columns
-    dataframe.to_excel(writer, sheetname, index=False)
-    # Get the xlsxwriter workbook and worksheet objects.
-    workbook  = writer.book
-    formats = build_formats_for(workbook)
-    worksheet = writer.sheets[sheetname]
-    worksheet.freeze_panes(1,1)
-    worksheet.autofilter(0,0,r,c)
-    apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
+_output_excel = set_output_excel((1,1), (0,0), 0)
 
 @items.route('/items/inventory-sheets', methods=['POST'])
 def add_items_to_inventory_sheet():
@@ -123,6 +114,30 @@ def get_item_by_code(code):
     return build_response(dao.dfToJson(result))
   return jsonify(message="code \'{}\' is not well formatted".format(code)), 400
 
+def filter_if_soderiz(items):
+  valid_cash_codes=["820082"
+                    ,"820083"
+                    ,"820084"
+                    ,"820087"
+                    ,"820090"
+                    ,"820091"
+                    ,"820095"
+                    ,"820301"
+                    ,"820360"
+                    ,"820370"
+                    ,"820381"
+                    ,"820400"
+                    ,"820420"
+                    ,"820531"
+                    ,"821050"
+                    ,"821065"
+                    ,"821068"
+                    ,"821069"
+                    ,"822010"
+                    ,"822015"
+                    ,"822016"]
+  return items.query("itemcode in @valid_cash_codes")
+
 
 @items.route('/items', methods=['GET'])
 def items_routing():
@@ -136,6 +151,9 @@ def items_routing():
     return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
   if supplier_param:
     items = master.query("cardcode=='{}' and sellitem=='Y'".format(supplier_param))
+    SODERIZ_CODE="F23950"
+    if supplier_param==SODERIZ_CODE:
+      items = filter_if_soderiz(items)
     return build_response(dao.dfToJson(items.sort_values(by=["itemname"])))
   return build_response(dao.dfToJson(master))
 
@@ -216,22 +234,12 @@ def compute_dluo_metrics():
 
   def _add_filters(df):
       df["filtre"] = df.apply(lambda row: 1 if row.ecoulmt<row.proche and row.countdown>0 else 0,axis=1)
-      
-  def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
-      r, c = dataframe.shape # number of rows and columns
-      dataframe.to_excel(writer, sheetname)
-      # Get the xlsxwriter workbook and worksheet objects.
-      workbook  = writer.book
-      formats = build_formats_for(workbook)
-      worksheet = writer.sheets[sheetname]
-      worksheet.freeze_panes(1,4)
-      worksheet.autofilter(0,0,r,c)
-      apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
 
   _add_filters(dluos) 
   outDf = dluos[dluos.onhand>0].loc[:,displayed_order]
 
   output = BytesIO()
+  _output_excel = set_output_excel((1,4), (0,0), 0, True)
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     resize_cols = [
         ["B:B", to_size_col(1), "date1"]
@@ -260,6 +268,7 @@ def compute_item_sales(itemcode):
   #itemcodes = commaJoined([itemcode])
   histo_item = cache_dao.compute_sales_for_itemcode(itemcode, fromDate, toDate)#dao.compute_sales_for_itemcodes(itemcodes, periods)
   output = BytesIO()
+  _output_excel = set_output_excel((2,3), (1,1), 1)
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     resize_cols = [
     ["A:A", to_size_col(3.95), "no_format"]
@@ -267,7 +276,8 @@ def compute_item_sales(itemcode):
     ,["D:H", to_size_col(1), "no_format"]
     ,["J:J", to_size_col(1.3), "percents"]
     ]
-    _output_excel(writer, "Sheet1", histo_item, resize_cols, _apply_formats)
+    worksheet = _output_excel(writer, "Sheet1", histo_item, resize_cols, _apply_formats)
+    add_count_non_zero(worksheet, histo_item, 2,3)
 
   return send_file_response(output, f"{itemname}_{toDate.strftime(DATE_FMT)}.xlsx")
 

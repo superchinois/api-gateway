@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import xlsxwriter
-from xlsxwriter.utility import xl_rowcol_to_cell
+from xlsxwriter.utility import xl_rowcol_to_cell, xl_col_to_name
 import csv
 import math
 
@@ -102,3 +102,26 @@ def build_formats_for(workbook):
   fmt_names=["no_format","number", "percents", "currency", "neutral", "warning", "bad", "good", "error", "date1"]
   formats={k:v for k,v in zip(fmt_names, fmt_array)}
   return formats
+
+def set_output_excel(freeze_loc, autofilter_loc,start_row, to_excel_index=False):
+  def _output_excel(writer, sheetname, dataframe, sizes, apply_formats_fn):
+    r, c = dataframe.shape # number of rows and columns
+    dataframe.to_excel(writer, sheetname, index=to_excel_index, startrow=start_row)
+    # Get the xlsxwriter workbook and worksheet objects.
+    workbook  = writer.book
+    formats = build_formats_for(workbook)
+    worksheet = writer.sheets[sheetname]
+    worksheet.freeze_panes(*freeze_loc)
+    worksheet.autofilter(*autofilter_loc,r,c-1)
+    apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
+    return worksheet
+  return _output_excel
+
+def add_count_non_zero(worksheet, dataframe, rowstart, colstart, col_mask=0):
+  r,c = dataframe.shape
+  sum_headers_cols=list(map(lambda col: xl_col_to_name(col), range(colstart, c-col_mask)))
+  row_start=rowstart
+  row_end=row_start+r
+  for current_col in sum_headers_cols:
+      worksheet.write_formula(f"{current_col}{row_start-1}", 
+        f"=countif({current_col}{row_start}:{current_col}{row_end}, \">0\")")

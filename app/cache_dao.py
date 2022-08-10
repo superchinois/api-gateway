@@ -7,7 +7,9 @@ import functools
 import numpy as np
 import json
 from app.utils.query_utils import convertSerieToDataArray, build_pivot_labels,compute_months_dict_betweenDates
-from app.cache import fetch_master_itemlist
+from app.dao import dao
+
+fetch_master_itemlist = dao.getMasterDataDf
 
 def build_label(values, columns):
     return ["('sum', '{}', '{}')".format(x[0], x[1]) for x in itertools.product(values, columns)]
@@ -56,6 +58,14 @@ def get_historical_sales_for_itemcode(itemcode:str, from_date: dt.datetime, to_d
     options={}
     return pipeline, options
 
+def get_historical_sales_between(from_date: dt.datetime, to_date: dt.datetime):
+    pipeline = [
+        {"$match":{"$and": [{"docdate":{"$gte":from_date}}, {"docdate":{"$lt":to_date}}]}},
+        {"$group": { "_id":"$itemcode", "quantity": { "$sum": "$quantity" }, "linetotal":{"$sum":"$linetotal"}}},
+    ]
+    options={}
+    return pipeline, options
+
 def sales_for_item_between_dates(itemcode, fromDate, toDate):
     query={"$and":[{"itemcode":itemcode}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
     return query
@@ -63,6 +73,17 @@ def sales_for_item_between_dates(itemcode, fromDate, toDate):
 def sales_for_items_between_dates(itemcodes, fromDate, toDate):
     query={"$and":[{"itemcode":{"$in": itemcodes}}, {"docdate":{"$gte":fromDate}}, {"docdate":{"$lte": toDate}}]}
     return query
+
+def mongo_sales_atDate(at_date):
+    fields = ["_id","cardname", "itemcode", "dscription"
+             , "quantity", "linetotal", "isodate", "docnum"
+             , "cardcode"]
+    pipeline = [
+        {"$match": {"docdate": at_date}}
+        ,{"$project": {k:v for k,v in zip(fields, [0]+[1]*(len(fields)-1))}}
+    ]
+    options={}
+    return pipeline, options
 
 class CacheDao:
     keys = ["MONGO_URI", "MONGO_DATABASE", "MONGO_COLLECTION"]

@@ -268,7 +268,7 @@ def compute_item_sales(itemcode):
   #itemcodes = commaJoined([itemcode])
   histo_item = cache_dao.compute_sales_for_itemcode(itemcode, fromDate, toDate)#dao.compute_sales_for_itemcodes(itemcodes, periods)
   output = BytesIO()
-  _output_excel = set_output_excel((2,3), (1,1), 1)
+  _output_excel = set_output_excel((2,3), (1,0), 1)
   with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     resize_cols = [
     ["A:A", to_size_col(3.95), "no_format"]

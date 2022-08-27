@@ -150,7 +150,7 @@ def historique_client(cardcode):
     periodInWeeks = 10
     siDf = cache_dao.getItemsBoughtByClient(cardcode, periodInWeeks)
     siDf = siDf.sort_values(["categorie", "dscription"], ascending=[1,1])
-    output_excel = set_output_excel((2,4), (1,1), 1, True)
+    output_excel = set_output_excel((2,4), (1,0), 1, True)
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
       worksheet = output_excel(writer, "Sheet1", siDf, [["C:C", to_size_col(5), "no_format"]], apply_fmts)
       add_count_non_zero(worksheet, siDf, 2, 5, 4)

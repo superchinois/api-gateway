@@ -112,7 +112,7 @@ def set_output_excel(freeze_loc, autofilter_loc,start_row, to_excel_index=False)
     formats = build_formats_for(workbook)
     worksheet = writer.sheets[sheetname]
     worksheet.freeze_panes(*freeze_loc)
-    worksheet.autofilter(*autofilter_loc,r,c-1)
+    worksheet.autofilter(*autofilter_loc,r,c)
     apply_formats_fn(sheetname, worksheet, formats, sizes, r, c, dataframe)
     return worksheet
   return _output_excel

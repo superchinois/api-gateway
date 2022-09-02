@@ -11,6 +11,7 @@ def create_app(app_name=PKG_NAME, **kwargs):
   from views.items import items
   from views.arrival import arrival
   from views.leaderboards import leaderboards
+  # Add routes to be registered in Flask
   routes=[bp, tags, suppliers, items, arrival, leaderboards]
   for route in routes :
     app.register_blueprint(route)

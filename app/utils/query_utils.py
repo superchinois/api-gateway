@@ -138,3 +138,19 @@ def sales_for_groupCodes(period):
         stmt=querybuilder(sql_params).format_map({'groupcodes':groupcodes, 'year':period['year'],'months':period['months']})
         return stmt
     return format_with_itemcodes
+
+def build_cols_part(db_prefix, columns):
+    return ",".join(["{}.{}".format(db_prefix, x) for x in columns])
+
+def query_ojdt(ofDay):
+    ojdt_columns_name=["transid", "transtype", "refdate", "memo", "ref1", "ref2", "series", "number"]
+    jdt1_columns_name=["line_id", "account", "debit", "credit", "shortname"]
+    fmt_params=[
+        build_cols_part("t0", ojdt_columns_name)
+        ,build_cols_part("t1", jdt1_columns_name)
+        ,ofDay
+    ]
+    _qry="""select {}, {} from dbo.ojdt t0 
+    join dbo.jdt1 t1 on t1.transid=t0.transid 
+    where t0.refdate='{}'""".format(*fmt_params)
+    return _qry

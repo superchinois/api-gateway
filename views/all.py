@@ -6,7 +6,7 @@ from app.utils.flask_helpers import build_response, send_file_response
 from app.utils.xlsxwriter_utils import to_size_col, set_output_excel, add_count_non_zero
 from app.utils.mongo_utils import queryUpdateCache
 from app.utils.metrics_helpers import add_revenues_metrics, pivot_on_items, pivot_on_categories,rewind_x_months
-from app.utils.query_utils import compute_months_dict_betweenDates
+from app.utils.query_utils import compute_months_dict_betweenDates,query_ojdt
 from app.dao import dao
 from app.cache_dao import cache_dao
 from app.cache import fetch_master_itemlist
@@ -15,7 +15,7 @@ from xlsxwriter.utility import xl_rowcol_to_cell, xl_col_to_name
 import datetime as dt
 import pandas as pd
 import os, json, functools
-
+from compose import compose
 from io import BytesIO
 
 def no_fmt_fn(*args, **kwargs):
@@ -273,3 +273,41 @@ def clear_cache_data():
   return jsonify(message="cache has been cleared"), 200
 
 
+@bp.route('/cash/oftheday', methods=["POST"])
+def computeJournalMvmts():
+  def _fmt(fmt):
+    def _format(value):
+        return format(value, fmt)
+    return _format
+  def nth(index):
+    def _take(x):
+        return x[index]
+    return _take
+  def signed(sens):
+    def _sign(value):
+        if sens=='credit':
+            return -value
+        return value
+    return _sign
+  def sum_from(dataframe):
+    def _sum(account, sens):
+        return dataframe.query("account==@account")[sens].sum()
+    return _sum
+  # Reducers
+  def sumFloats(x,y):
+      return x+y
+  def isEsp(x):
+      return x=='531000'
+  isEsp1=compose(isEsp, nth(1))
+  labels   = ["ESP encaiss", "ESP decaiss", "CB  encaiss", "CHQ encaiss"]
+  accounts = ["531000", "531000", "511500", "511200"]
+  sens     = ["debit" , "credit", "debit" , "debit"]
+
+  today=dt.datetime.today()
+  today_str = today.strftime("%Y%m%d")
+  jdt1_oftheday = dao.execute_query(query_ojdt(today_str))
+  sum_jdt_for = sum_from(jdt1_oftheday)
+  _a_=list(zip(labels, zip(accounts, sens)))
+  money = list(map(lambda x: (x[0],x[1][0], signed(x[1][1])(sum_jdt_for(*x[1]))), _a_))
+  result = {nth(0)(x):_fmt(".2f")(nth(2)(x)) for x in money}
+  return build_response(jsonify(result))

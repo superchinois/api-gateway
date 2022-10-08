@@ -299,9 +299,9 @@ def computeJournalMvmts():
   def isEsp(x):
       return x=='531000'
   isEsp1=compose(isEsp, nth(1))
-  labels   = ["ESP encaiss", "ESP decaiss", "CB  encaiss", "CHQ encaiss"]
-  accounts = ["531000", "531000", "511500", "511200"]
-  sens     = ["debit" , "credit", "debit" , "debit"]
+  labels   = ["ESP encaiss", "ESP decaiss", "CB  encaiss", "CB decaiss", "CHQ encaiss", "CHQ decaiss"]
+  accounts = ["531000", "531000", "511500", "511500", "511200", "511200"]
+  sens     = ["debit" , "credit", "debit", "credit", "debit", "credit"]
 
   today=dt.datetime.today()
   today_str = today.strftime("%Y%m%d")
@@ -309,5 +309,5 @@ def computeJournalMvmts():
   sum_jdt_for = sum_from(jdt1_oftheday)
   _a_=list(zip(labels, zip(accounts, sens)))
   money = list(map(lambda x: (x[0],x[1][0], signed(x[1][1])(sum_jdt_for(*x[1]))), _a_))
-  result = {nth(0)(x):_fmt(".2f")(nth(2)(x)) for x in money}
+  result = {nth(0)(x):_fmt(".2f")(nth(2)(x)) for x in filter(lambda x: abs(nth(2)(x))>0, money)}
   return build_response(jsonify(result))

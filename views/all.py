@@ -299,7 +299,7 @@ def computeJournalMvmts():
   def isEsp(x):
       return x=='531000'
   isEsp1=compose(isEsp, nth(1))
-  labels   = ["ESP encaiss", "ESP decaiss", "CB  encaiss", "CB decaiss", "CHQ encaiss", "CHQ decaiss"]
+  labels   = ["ESP encaiss", "ESP decaiss", "CB encaiss", "CB decaiss", "CHQ encaiss", "CHQ decaiss"]
   accounts = ["531000", "531000", "511500", "511500", "511200", "511200"]
   sens     = ["debit" , "credit", "debit", "credit", "debit", "credit"]
 

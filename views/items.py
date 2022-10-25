@@ -146,7 +146,7 @@ def items_routing():
   master = fetch_master_itemlist()
   if search_param:
     pattern='.*'+search_param.upper().replace(' ','.*')+'.*'
-    result = master[master["itemname"].str.contains(pattern)]
+    result = master[master["itemname"].str.contains(pattern)].copy()
     result["itemname_len"] = [len(row.itemname) for row in result.itertuples()]
     return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
   if supplier_param:

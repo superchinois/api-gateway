@@ -37,26 +37,24 @@ def compute_receptions_from_date(fromDate):
   return dao.getReceptionsMarchandise(fromDate)
 
 def bin_horaires(isodate):
-    plage_horaire=list(range(6,17))
-    plage_labels = [f"{str(h[0]).zfill(2)}:00-{str(h[1]).zfill(2)}:00" for h in zip(range(5,16), range(6,17))]
+    plage_horaire=list(range(5,19))
+    plage_labels = [f"{str(h[0]).zfill(2)}:00-{str(h[1]).zfill(2)}:00" for h in zip(range(5,18), range(6,19))]
     heures = [dt.time(h) for h in plage_horaire]
     heures_length = len(heures)
     cursor=0
     while cursor< heures_length and isodate.time()>=heures[cursor]:
         cursor=cursor+1
     if cursor<heures_length:
-        return plage_labels[cursor]
+        return plage_labels[cursor-1]
     return "outside_range"
 
 @cache.cached(timeout=600, key_prefix="customers")
-def get_customers_lead():
+def get_customers_lead(the_date: dt.datetime) -> pd.DataFrame:
   last_docnum = cache_dao.last_record()["docnum"]
   updated_data = queryUpdateCache.get_data_from_sap_as_df(last_docnum)
   if not updated_data.empty:
     cache_dao.importFromDataframe(updated_data)
-  params = ["hour", "minute", "second", "microsecond"]
-  today = dt.datetime.today().replace(**{k:0 for k in params})
-  raw_data = cache_dao.apply_aggregate(*mongo_sales_atDate(today))
+  raw_data = cache_dao.apply_aggregate(*mongo_sales_atDate(the_date))
   data_df = pd.DataFrame(list(raw_data))
   data_df["time"] = [str(row.isodate).split(" ")[1][0:5] for row in data_df.itertuples()]
   data_df["plage"]=[bin_horaires(row.isodate) for row in data_df.itertuples()]

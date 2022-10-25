@@ -38,7 +38,9 @@ def set_dataframe_for_docnum(dataframe):
 
 @leaderboards.route("/leaderboards/customers", methods=["GET"])
 def show_customers_leaderboard_of_the_day():
-    data_df = get_customers_lead()
+    params = ["hour", "minute", "second", "microsecond"]
+    today = dt.datetime.today().replace(**{k:0 for k in params})
+    data_df = get_customers_lead(today)
     extract_docnums = set_dataframe_for_docnum(data_df)
     custo_df = customers_leaderboard(data_df)
     leaderboard = pd.DataFrame(custo_df.to_records(), columns=["cardcode", "cardname", "time", "plage","linetotal"])

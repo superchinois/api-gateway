@@ -11,6 +11,9 @@ import itertools
 import numpy as np
 from app.utils.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
 from app.utils.query_utils import build_query_over, build_period, build_pivot_labels, toJoinedString, sales_for_groupCodes
+from sqlalchemy import create_engine
+from urllib.parse import quote_plus as urlquote
+
 
 commaJoined = toJoinedString(",")
 master_data_query="""select t0.itemcode, t0.itemname,t0.codebars,t7.Price as vente, t8.rate, 
@@ -82,12 +85,20 @@ class SapDao:
 
   def make_mssql_connect(self):
     server, user, password, db_name = map(lambda x: self.config[x], self.keys[slice(4)])
-    return pymssql.connect(server, user, password, db_name)
+    engine_params=[user, urlquote(password), server, db_name]
+    db_schema = "mssql+pymssql://{}:{}@{}/{}"
+    # establish connection with the database
+    engine = create_engine(db_schema.format(*engine_params))
+    return engine
+
+#  def make_mssql_connect(self):
+#    server, user, password, db_name = map(lambda x: self.config[x], self.keys[slice(4)])
+#    return pymssql.connect(server, user, password, db_name)
 
   def execute_query(self, query):
   # Execute sql query with pandas
-    with self.make_mssql_connect() as msconn:
-      df = pd.read_sql_query(query, msconn)
+    msconn = self.make_mssql_connect()
+    df = pd.read_sql_query(query, con=msconn)
     return df
 
   def getSqliteConnection(self, sqlite_filepath):

@@ -75,20 +75,22 @@ def computeWeeklySales(cardcode):
   #receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
   dateFrom = substract_days_from_today(periodInWeeks*nb_days_in_one_week)
   receipts_po = compute_receptions_from_date(dateFrom).query(f"cardcode=='{cardcode}'")
-  index_fields=["itemcode", "dscription"]
-  values_fields=["quantity"]
-  columns_fields=["c"]
-  pivot_sales = pd.pivot_table(receipts_po, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
-  outputDf=pd.DataFrame(pivot_sales.to_records())
-  column_labels = receipts_po["c"].unique().tolist()
-  column_labels.sort(reverse=True)
-  labels_count=len(column_labels)
-  ind_fields_count=len(index_fields)
-  shortened_col_labels = column_labels #list(map(lambda x:x[5:],column_labels))
-  columns_renamed = {k:v for k,v in zip(build_label(values_fields, column_labels), shortened_col_labels)}
-  outputDf.rename(columns=columns_renamed, inplace=True)
-  outputDf = outputDf.loc[:,index_fields+shortened_col_labels]
-  r, c=salesDataDf.shape
+  r = c =0
+  if len(receipts_po)>0:
+    index_fields=["itemcode", "dscription"]
+    values_fields=["quantity"]
+    columns_fields=["c"]
+    pivot_sales = pd.pivot_table(receipts_po, index=index_fields,values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+    outputDf=pd.DataFrame(pivot_sales.to_records())
+    column_labels = receipts_po["c"].unique().tolist()
+    column_labels.sort(reverse=True)
+    labels_count=len(column_labels)
+    ind_fields_count=len(index_fields)
+    shortened_col_labels = column_labels #list(map(lambda x:x[5:],column_labels))
+    columns_renamed = {k:v for k,v in zip(build_label(values_fields, column_labels), shortened_col_labels)}
+    outputDf.rename(columns=columns_renamed, inplace=True)
+    outputDf = outputDf.loc[:,index_fields+shortened_col_labels]
+    r, c=salesDataDf.shape
   # Convert the dataframe to an XlsxWriter Excel object.
   salesDataDf.to_excel(writer, sheet_name='Sheet1')
   #format_to_excel(workbook, salesDataDf, {"date":now})
@@ -109,21 +111,22 @@ def computeWeeklySales(cardcode):
     monday=dt.datetime.strptime(w, "%Y-%m-%d").date()
     mask = discounted_items.apply(lambda row: inDiscountPredicate(monday, row.fromdate.date(), row.todate.date()), axis=1)
     masks[w]=mask
-  # Apply formats 
-  for idx, row in enumerate(salesDataDf.itertuples()):
-    itemcode = salesDataDf.index[idx]
-    receipt_item = outputDf.query(f"itemcode=='{itemcode}'")
-    receipt_dates = outputDf.columns
-    dates = receipt_dates[2:] #receipt_date.values.tolist()
-    for w in weeks:
-      week_col = df_columns.get_loc(w)
-      if not discounted_items.loc[masks[w]].query(f"itemcode=='{itemcode}'").empty:
-        worksheet.write(idx+1, week_col+1, salesDataDf.iloc[idx, week_col], formats["good"])
-      if w in dates:
-        if not receipt_item.empty:
-          receipt_quantity = receipt_item.iloc[0][w]
-          if receipt_quantity>0 :
-            worksheet.write_comment(idx+1, week_col+1, f"recu : {receipt_quantity}")
+  # Apply formats
+  if len(receipts_po)>0:
+    for idx, row in enumerate(salesDataDf.itertuples()):
+      itemcode = salesDataDf.index[idx]
+      receipt_item = outputDf.query(f"itemcode=='{itemcode}'")
+      receipt_dates = outputDf.columns
+      dates = receipt_dates[2:] #receipt_date.values.tolist()
+      for w in weeks:
+        week_col = df_columns.get_loc(w)
+        if not discounted_items.loc[masks[w]].query(f"itemcode=='{itemcode}'").empty:
+          worksheet.write(idx+1, week_col+1, salesDataDf.iloc[idx, week_col], formats["good"])
+        if w in dates:
+          if not receipt_item.empty:
+            receipt_quantity = receipt_item.iloc[0][w]
+            if receipt_quantity>0 :
+              worksheet.write_comment(idx+1, week_col+1, f"recu : {receipt_quantity}")
 
   # Close the workbook before streaming the data.
   writer.save()

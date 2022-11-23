@@ -114,30 +114,10 @@ def get_item_by_code(code):
     return build_response(dao.dfToJson(result))
   return jsonify(message="code \'{}\' is not well formatted".format(code)), 400
 
-def filter_if_soderiz(items):
-  valid_cash_codes=["820082"
-                    ,"820083"
-                    ,"820084"
-                    ,"820087"
-                    ,"820090"
-                    ,"820091"
-                    ,"820095"
-                    ,"820301"
-                    ,"820360"
-                    ,"820370"
-                    ,"820381"
-                    ,"820400"
-                    ,"820420"
-                    ,"820531"
-                    ,"821050"
-                    ,"821065"
-                    ,"821068"
-                    ,"821069"
-                    ,"822010"
-                    ,"822015"
-                    ,"822016"]
-  return items.query("itemcode in @valid_cash_codes")
-
+def filter_from(masterdata):
+  def _with_codes(itemcodes):
+    return masterdata.query("itemcode in @itemcodes")
+  return _with_codes
 
 @items.route('/items', methods=['GET'])
 def items_routing():
@@ -151,10 +131,25 @@ def items_routing():
     return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
   if supplier_param:
     items = master.query("cardcode=='{}' and sellitem=='Y'".format(supplier_param))
+    extract_from_master = filter_from(master)
     SODERIZ_CODE="F23950"
-    if supplier_param==SODERIZ_CODE:
-      items = filter_if_soderiz(items)
+    valid_cash_codes=["820082","820083","820084","820087","820090"
+                    ,"820091","820095","820301","820360","820370"
+                    ,"820381","820400","820420","820531"
+                    ,"821050","821065","821068","821069"
+                    ,"822010","822015","822016"]
+    SIS_CODE="F95214"
+    ECHINE_CODE="324319"
+    special_cases = {
+    SODERIZ_CODE:{"codes":valid_cash_codes},
+    SIS_CODE: {"codes":[ECHINE_CODE]}
+    }
+    if supplier_param in special_cases:
+      codes_to_extract = special_cases[supplier_param]["codes"]
+      items = extract_from_master(codes_to_extract)
     return build_response(dao.dfToJson(items.sort_values(by=["itemname"])))
+
+  # Return all items if no url parameters
   return build_response(dao.dfToJson(master))
 
 @items.route('/items/stats/<string:itemcode>', methods=['GET'])

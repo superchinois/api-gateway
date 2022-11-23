@@ -38,8 +38,16 @@ def set_dataframe_for_docnum(dataframe):
 
 @leaderboards.route("/leaderboards/customers", methods=["GET"])
 def show_customers_leaderboard_of_the_day():
-    params = ["hour", "minute", "second", "microsecond"]
-    today = dt.datetime.today().replace(**{k:0 for k in params})
+    def reset_datetime(aDate):
+        params = ["hour", "minute", "second", "microsecond"]
+        return aDate.replace(**{k:0 for k in params})
+
+    today = reset_datetime(dt.datetime.today())
+    atDate = request.args.get("at-date")
+    if atDate :
+        DATE_FMT="%Y-%m-%d"
+        today = reset_datetime(dt.datetime.strptime(atDate, DATE_FMT))
+
     data_df = get_customers_lead(today)
     extract_docnums = set_dataframe_for_docnum(data_df)
     custo_df = customers_leaderboard(data_df)

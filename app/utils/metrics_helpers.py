@@ -93,6 +93,11 @@ def is_nat(ts):
   #return isinstance(ts, pd.tslib.NaTType)
 
 def compute_last_lot(itemcode, onhand, dluo_array):
+  def process_dluo_array(dluo_array):
+    dluo_date = dluo_array[QTY_RECEIPT_INDEX+1]
+    if dluo_date is None:
+      dluo_date=dt.datetime(dt.MINYEAR, 1,1)
+    return dluo_array[2:QTY_RECEIPT_INDEX+1] +[dluo_date.date()]
   '''
   Returns a tuple containing a vector with dluo data in the form of [onhand, dluoArrayData] and 
   a remanining quantity of the oldest lot as a double
@@ -108,10 +113,10 @@ def compute_last_lot(itemcode, onhand, dluo_array):
     # 2:QTY_RECEIPT_INDEX+1: skip first two elements
     # last_index+2: up until the last plus one (due to slice)
     last_index=idx[-1][0]
-    dluo_vec=onhand+[list(map(lambda x:x[2:QTY_RECEIPT_INDEX+1] +[x[QTY_RECEIPT_INDEX+1].date()],dluo_array[slice(last_index+2)]))]
+    dluo_vec=onhand+[list(map(lambda x:process_dluo_array(x),dluo_array[slice(last_index+2)]))]
     remaining = idx[-1][1]
   else:
-    dluo_vec = onhand+[[dluo_array[0][2:QTY_RECEIPT_INDEX+1]+[dluo_array[0][QTY_RECEIPT_INDEX+1].date()]]]
+    dluo_vec = onhand+[[process_dluo_array(dluo_array[0])]]
     remaining = onhand[0]
   return dluo_vec, remaining
 

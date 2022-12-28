@@ -142,7 +142,11 @@ def items_routing():
     ECHINE_CODE="324319"
     special_cases = {
     SODERIZ_CODE:{"codes":valid_cash_codes},
-    SIS_CODE: {"codes":[ECHINE_CODE]}
+    SIS_CODE: {"codes":[ECHINE_CODE
+    ,"323045" # FRITE 517
+    ,"323035" # POMMES FRITES 9*9 grA ORIG:BELG sachet 1KG
+    ,"323034" # POMMES FRITES 9*9mm grA ORIG:BELG SACHET 2.5KG  
+    ]}
     }
     if supplier_param in special_cases:
       codes_to_extract = special_cases[supplier_param]["codes"]

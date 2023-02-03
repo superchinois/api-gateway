@@ -83,7 +83,7 @@ def extract_dluos(dataframe):
   result=[]
   for itemcode in uniq_itemcodes:
     qry_string="itemcode=='{}'".format(itemcode)
-    entrees_march=dataframe.query(qry_string).sort_values(by=["docdate"], ascending=False)
+    entrees_march=dataframe.query(qry_string).sort_values(by=["docnum"], ascending=False)
     array = list(entrees_march.values.tolist())
     result.append(array)
   return result

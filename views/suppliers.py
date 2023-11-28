@@ -139,8 +139,7 @@ def computeImportSales(cardcode):
   output = BytesIO()
   periodInWeeks = 16
   salesDataDf = cache_dao.getImportSales(cardcode, periodInWeeks)
-  receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
-  column_name = " ".join(["quantity", receipts_po.loc[0,"c"]])
+  #column_name = " ".join(["quantity", receipts_po.loc[0,"c"]])
   r, c = salesDataDf.shape # number of rows and columns
   # Create a Pandas Excel writer using XlsxWriter as the engine.
   writer = pd.ExcelWriter(output, engine='xlsxwriter')
@@ -162,20 +161,22 @@ def computeImportSales(cardcode):
   #worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'$Sheet1.$J2=0', "format": bad_format})
   worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'$Sheet1.$J2<$Sheet1.$L2', "format":warning_format})
 
-  # Apply formats 
-  for idx, row in enumerate(salesDataDf.itertuples()):
-    itemcode = salesDataDf.index[idx]
-    receipt_item = receipts_po.query(f"itemcode=='{itemcode}'")
-    receipt_date = receipt_item.c
-    if not receipt_date.empty:
-      dates = receipt_date.values.tolist()
-      headers = map(lambda x: " ".join(["quantity", x]), dates)
-      col_numbers = map(lambda x: salesDataDf.columns.get_loc(x), headers)
-      for date_idx, col in enumerate(col_numbers):
-        receipt_quantity=receipt_item.query(f"c=='{dates[date_idx]}'").quantity.sum()
-        worksheet.write_comment(idx+1, col+1, f"recu : {receipt_quantity}")
-        #worksheet.write(idx+1, col+1, salesDataDf.iloc[idx, col], formats["good"])
-        #apply_format(worksheet, idx+1, col+1, formats["good"])
+  receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
+  if len(receipts_po)>0:
+    # Apply formats 
+    for idx, row in enumerate(salesDataDf.itertuples()):
+      itemcode = salesDataDf.index[idx]
+      receipt_item = receipts_po.query(f"itemcode=='{itemcode}'")
+      receipt_date = receipt_item.c
+      if not receipt_date.empty:
+        dates = receipt_date.values.tolist()
+        headers = map(lambda x: " ".join(["quantity", x]), dates)
+        col_numbers = map(lambda x: salesDataDf.columns.get_loc(x), headers)
+        for date_idx, col in enumerate(col_numbers):
+          receipt_quantity=receipt_item.query(f"c=='{dates[date_idx]}'").quantity.sum()
+          worksheet.write_comment(idx+1, col+1, f"recu : {receipt_quantity}")
+          #worksheet.write(idx+1, col+1, salesDataDf.iloc[idx, col], formats["good"])
+          #apply_format(worksheet, idx+1, col+1, formats["good"])
   # Close the Pandas Excel writer and output the Excel file.
   writer.save()
   # Close the workbook before streaming the data.

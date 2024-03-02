@@ -143,9 +143,8 @@ def items_routing():
     special_cases = {
     SODERIZ_CODE:{"codes":valid_cash_codes},
     SIS_CODE: {"codes":[ECHINE_CODE
-    ,"323045" # FRITE 517
-    ,"323035" # POMMES FRITES 9*9 grA ORIG:BELG sachet 1KG
-    ,"323034" # POMMES FRITES 9*9mm grA ORIG:BELG SACHET 2.5KG  
+    ,"324064" # CUISSES DE POULET BTE 10 KG VRAC (K°) ORIGINE EUROPE
+    ,"323017" # FRITES DIPPERS 2.5KG
     ]}
     }
     if supplier_param in special_cases:

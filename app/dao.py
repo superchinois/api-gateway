@@ -19,7 +19,7 @@ commaJoined = toJoinedString(",")
 master_data_query="""select t0.itemcode, t0.itemname,t0.codebars,t7.Price as vente, t8.rate, 
 t0.salfactor2 as 'pcb_vente', t0.purfactor2 as 'pcb_achat', t0.purfactor3 as 'pcb_pal', t0.onhand, t0.onorder, 
 t0.cardcode, t1.cardname, t2.ItmsGrpNam as categorie, t0.sellitem ,t5.Price as achat, t6.Price as revient,t0.itmsgrpcod 
-,t0.numinsale from sbo_sis.dbo.OITM t0 
+,t0.numinsale, t0.prchseitem from sbo_sis.dbo.OITM t0 
 left join sbo_sis.dbo.OCRD t1 on t1.CardCode=t0.cardcode 
 full join sbo_sis.dbo.OITB t2 on t0.ItmsGrpCod=t2.ItmsGrpCod 
 left join sbo_sis.dbo.ITM1 t5 on t0.ItemCode=t5.ItemCode and t5.PriceList='3' 

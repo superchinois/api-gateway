@@ -130,7 +130,7 @@ def items_routing():
     result["itemname_len"] = [len(row.itemname) for row in result.itertuples()]
     return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
   if supplier_param:
-    items = master.query("cardcode=='{}' and sellitem=='Y'".format(supplier_param))
+    items = master.query("cardcode=='{}' and prchseitem=='Y'".format(supplier_param))
     extract_from_master = filter_from(master)
     SODERIZ_CODE="F23950"
     valid_cash_codes=["820082","820083","820084","820087","820090"

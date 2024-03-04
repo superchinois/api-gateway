@@ -143,13 +143,8 @@ def items_routing():
     special_cases = {
     SODERIZ_CODE:{"codes":valid_cash_codes},
     SIS_CODE: {"codes":[ECHINE_CODE
-<<<<<<< HEAD
     ,"324064" # CUISSES DE POULET BTE 10 KG VRAC (K°) ORIGINE EUROPE
     ,"323017" # FRITES DIPPERS 2.5KG
-=======
-    ,"323017" # DIPPERS
-    ,"324064" # CUISSES DE POULET 10 KG
->>>>>>> 613ef6030aba8211948346ec93d434eb97fd7bb0
     ]}
     }
     if supplier_param in special_cases:

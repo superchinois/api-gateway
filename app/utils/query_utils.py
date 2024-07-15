@@ -119,7 +119,7 @@ def build_date(y,m,d):
     return dt.datetime(y,m,d).date()
 
 def build_pivot_labels(fields, years, months):
-    return ["('sum', '{}', {}, {})".format(x[0], x[1], x[2])for x in itertools.product(fields, years, months)]
+    return ["('{}', {}, {})".format(x[0], x[1], x[2])for x in itertools.product(fields, years, months)]
 
 def get_first_values(dataframe, column):
     return dataframe[column].values.tolist()[0]
@@ -154,3 +154,15 @@ def query_ojdt(ofDay):
     join dbo.jdt1 t1 on t1.transid=t0.transid 
     where t0.refdate='{}'""".format(*fmt_params)
     return _qry
+
+def deliveries_for_soderiz_items(start_date, end_date, codes_soderiz):
+    sql_params_odln={
+    'fields':["t0.docdate","t0.docnum", "t1.itemcode", "t1.dscription", "t1.quantity"],
+    'tables':"dbo.odln t0",
+    'where':["t0.docdate >= '{start_date}'", "t0.docdate<'{end_date}'"],
+    'join':{"dbo.dln1 t1":('1',["t0.docentry=t1.docentry","t1.itemcode in ({codes})"])}
+    }
+    keys=["start_date", "end_date","codes"]
+    values=[start_date, end_date, codes_soderiz]
+    stmt = querybuilder(sql_params_odln).format_map({k:v for k,v in zip(keys,values)})
+    return stmt

@@ -311,3 +311,10 @@ def computeJournalMvmts():
   money = list(map(lambda x: (x[0],x[1][0], signed(x[1][1])(sum_jdt_for(*x[1]))), _a_))
   result = {nth(0)(x):_fmt(".2f")(nth(2)(x)) for x in filter(lambda x: abs(nth(2)(x))>0, money)}
   return build_response(jsonify(result))
+
+@bp.route('/livraisons', methods=['GET'])
+def delivery_for_date(current_date):
+
+  devis = execute_query("""select t0.docnum, t0.cardname, t0.doctotal, t0.comments, t1.targettype,t0.docstatus, t0.doctime, t0.docduedate from dbo.oqut t0 
+  join dbo.qut1 t1 on t1.docentry=t0.docentry and t1.itemcode in ('999997')
+  where t0.docdate='{}'""".format(formatted_today)).sort_values(by="doctotal", ascending=False)

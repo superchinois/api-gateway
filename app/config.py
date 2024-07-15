@@ -12,6 +12,7 @@ class Config(object):
     MSSQL_PASS=env_config()["MSSQL_PASS"]
     SIS_DB_NAME="SBO_SIS"
     SUPPLIERS_INFO_FILE="mailing_list_fournisseurs_locaux.csv"
+    RICE_MASTER_FILE="rice_master_data.csv"
     SQLITE_TAGS_DB='database_sqlite.db'
     ITEMCODE_REGEX=r'^\d{6}$'
     CODEBARS_REGEX=r'^\d{7,14}$'

@@ -11,6 +11,7 @@ import itertools
 import numpy as np
 from app.utils.query_utils import compute_months_dict_betweenDates, querybuilder, build_query_cash, convertSerieToDataArray
 from app.utils.query_utils import build_query_over, build_period, build_pivot_labels, toJoinedString, sales_for_groupCodes
+from app.utils.query_utils import deliveries_for_soderiz_items
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus as urlquote
 
@@ -68,16 +69,25 @@ def assign_date(row):
   return result_monday.strftime("%Y-%m-%d")
 
 class SapDao:
-  keys=["SAP_DB_SERVER_IP","MSSQL_USER","MSSQL_PASS","SIS_DB_NAME","SQLITE_TAGS_DB", "SUPPLIERS_INFO_FILE"]
+  keys=["SAP_DB_SERVER_IP"
+  ,"MSSQL_USER","MSSQL_PASS"
+  ,"SIS_DB_NAME"
+  ,"SQLITE_TAGS_DB"
+  , "SUPPLIERS_INFO_FILE"
+  , "RICE_MASTER_FILE"]
   SQLITE_TAGS_DB=4
   SUPPLIERS_INFO_FILE=5
+  RICE_MASTER_FILE=6
   tags_db_k = keys[SQLITE_TAGS_DB]
   suppliers_info_file_k = keys[SUPPLIERS_INFO_FILE]
+  rice_master_k=keys[RICE_MASTER_FILE]
+
   def __init__(self):
     pass
 
   def init_app(self, app):
     self.config={k:v for k,v in map(lambda k: (k, app.config[k]), self.keys)}
+    self.rice_master = pd.read_csv(os.sep.join(["./resources", self.config[self.rice_master_k]]), sep=",")
   
   def print_config(self):
     for k in self.keys:
@@ -462,7 +472,7 @@ class SapDao:
     pvtable = pd.pivot_table(df, index=index_fields,
        values=values_fields,
        columns=columns_fields,
-       aggfunc=[np.sum],
+       aggfunc=["sum"],
        fill_value=0)
     df1 = pd.DataFrame(pvtable.to_records())
     date_labels=[]
@@ -484,7 +494,8 @@ class SapDao:
     df1["total"]=df1.loc[:,date_labels].sum(axis=1)
     cols = ["total"]+date_labels
     ALL_CLIENTS_LABEL = " TOTAL CLIENTS"
-    result_df = df1.append(pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols), ignore_index=True)
+    row_to_insert = pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols)
+    result_df = pd.concat([df1, row_to_insert.to_frame().T], ignore_index=True)
     result_df["freq"]=result_df.loc[:,date_labels].gt(0).sum(axis=1)
     past_months=dates[1:]
     result_df["moy"]=result_df.loc[:,past_months].replace(0, np.nan).mean(axis=1, skipna=True)
@@ -525,6 +536,18 @@ class SapDao:
                             , columns=["itemcode", "last_reception", "last_quantity"])
     output_df = pd.merge(master, unsold_df, on=["itemcode"])
     return output_df
+
+  def compute_soderiz_volumes(self, start, end):
+    codes_string_list = commaJoined(self.rice_master.itemcode.tolist())
+    sales_df = self.execute_query(deliveries_for_soderiz_items(start, end, codes_string_list))
+    index_fields=["itemcode", "dscription"]
+    values_fields=["quantity"]
+    columns_fields=[]
+    pivot = pd.pivot_table(sales_df, index=index_fields,
+            values=values_fields, columns=columns_fields,aggfunc=[np.sum], fill_value=0)
+    sales = pd.DataFrame(pivot.to_records())
+    sales.rename(columns={"('sum', 'quantity')":"quantity"}, inplace=True)
+    return sales
 
 dao = SapDao()
 

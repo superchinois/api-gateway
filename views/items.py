@@ -176,6 +176,15 @@ def salesForItemAtDate(itemcode, date):
   resultDf = dao.getSalesForItemAtDate(itemcode, date)
   return build_response(resultDf.to_json(orient="records"))
 
+
+@items.route('/items/stats/riz', methods=['GET'])
+def compute_vol_riz_between_dates():
+  start_date_iso = request.args.get('start')
+  end_date_iso = request.args.get('end')
+  start_date, end_date = map(lambda x: dt.datetime.strptime(x, DATE_FMT), [start_date_iso, end_date_iso])
+  resultDf = dao.compute_soderiz_volumes(start_date, end_date)
+  return build_response(resultDf.to_json(orient="records"))
+
 @items.route('/items/discounts/<string:itemcode>', methods=['GET'])
 def discountPeriods(itemcode):
   fromDateIso = request.args.get("from-date")
@@ -321,7 +330,6 @@ def compute_receptions(itemcode):
 
 @items.route('/items/unsold', methods=['GET'])
 def compute_unsold_items():
-
   def sanitize_ratio(row):
     last_quantity = row.last_quantity
     if isinstance(last_quantity, str):

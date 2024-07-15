@@ -4,12 +4,12 @@ Flask-Caching==1.10.1
 Flask-Cors==3.0.10
 Flask==2.1.0
 gspread==5.7.2
-pandas==1.5.3
+pandas==2.1.4
 python-dotenv==0.17.1
 pymongo==4.0.2
-pymssql==2.2.7
+pymssql==2.2.8
 statsmodels==0.13.5
-sqlalchemy==1.4.42
+sqlalchemy==1.4.52
 Werkzeug==2.1.0
 xlrd==2.0.1
 XlsxWriter==3.0.3

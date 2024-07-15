@@ -107,7 +107,7 @@ class CacheDao:
         return pd.DataFrame(list(foundData))
 
     def apply_aggregate(self, pipeline, options):
-        foundData = self.with_collection(lambda data: data.aggregate(pipeline, options))
+        foundData = self.with_collection(lambda data: data.aggregate(pipeline))
         return foundData
 
     def with_collection(self, computation) -> pd.DataFrame:
@@ -281,7 +281,7 @@ class CacheDao:
         pvtable = pd.pivot_table(df, index=index_fields,
         values=values_fields,
         columns=columns_fields,
-        aggfunc=[np.sum],
+        aggfunc="sum",
         fill_value=0)
         df1 = pd.DataFrame(pvtable.to_records())
         date_labels=[]
@@ -303,7 +303,8 @@ class CacheDao:
         df1["total"]=df1.loc[:,date_labels].sum(axis=1)
         cols = ["total"]+date_labels
         ALL_CLIENTS_LABEL = " TOTAL CLIENTS"
-        result_df = df1.append(pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols), ignore_index=True)
+        row_to_insert = pd.Series([ALL_CLIENTS_LABEL]+[df1[x].sum() for x in cols], index=["cardname"]+cols)
+        result_df = pd.concat([df1, row_to_insert.to_frame().T], ignore_index=True)
         result_df["freq"]=result_df.loc[:,date_labels].gt(0).sum(axis=1)
         past_months=dates[1:]
         result_df["moy"]=result_df.loc[:,past_months].replace(0, np.nan).mean(axis=1, skipna=True)

@@ -122,13 +122,23 @@ def filter_from(masterdata):
 @items.route('/items', methods=['GET'])
 def items_routing():
   search_param = request.args.get("search")
+  print(search_param)
   supplier_param = request.args.get("cardcode")
   master = fetch_master_itemlist()
   if search_param:
-    pattern='.*'+search_param.upper().replace(' ','.*')+'.*'
-    result = master[master["itemname"].str.contains(pattern)].copy()
-    result["itemname_len"] = [len(row.itemname) for row in result.itertuples()]
-    return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
+    pattern=search_param.upper().replace(' ','.*')+'.*'
+    #result = master[master["itemname"].str.contains(pattern)].copy()
+    result = master.query("itemname.str.contains('.*{}')".format(pattern))
+    all_idx = result.index
+    sub_result = result.query("itemname.str.contains('^{}')".format(search_param.upper()))
+    if not sub_result.empty:
+      idx = sub_result.index
+      diff = set(all_idx)-set(idx)
+      if len(diff)>0:
+        result = master.iloc[idx.append(pd.Index(diff)),:].copy()
+    #result["itemname_len"] = [len(row.itemname) for row in result.itertuples()]
+    return build_response(dao.dfToJson(result.query("sellitem=='Y'")))
+    #return build_response(dao.dfToJson(result.query("sellitem=='Y'").sort_values(by=["itemname", "itemname_len"], ascending=[True, True])))
   if supplier_param:
     items = master.query("cardcode=='{}' and prchseitem=='Y'".format(supplier_param))
     extract_from_master = filter_from(master)

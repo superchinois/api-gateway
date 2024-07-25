@@ -77,7 +77,7 @@ def reduit(x,y):
 def convertSerieToDataArray(serie):
     # convert timestamp to unix time and round value to 2 decimals
     # 
-    return [[int(x.value/10**6),float(round(y,2)) if y==y else None] for x,y in serie.iteritems()]
+    return [[int(x.value/10**6),float(round(y,2)) if y==y else None] for x,y in serie.items()]
 
 def compute_months_dict_betweenDates(fromDate, toDate):
     months={}

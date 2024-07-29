@@ -129,7 +129,7 @@ def computeWeeklySales(cardcode):
               worksheet.write_comment(idx+1, week_col+1, f"recu : {receipt_quantity}")
 
   # Close the workbook before streaming the data.
-  writer.save()
+  writer.close()
   #workbook.close()
   return send_file_response(output, f"{cardcode}_{now}.xlsx")
 
@@ -178,7 +178,7 @@ def computeImportSales(cardcode):
           #worksheet.write(idx+1, col+1, salesDataDf.iloc[idx, col], formats["good"])
           #apply_format(worksheet, idx+1, col+1, formats["good"])
   # Close the Pandas Excel writer and output the Excel file.
-  writer.save()
+  writer.close()
   # Close the workbook before streaming the data.
   #workbook.close()
   return send_file_response(output, f"{cardcode}_{now}.xlsx")

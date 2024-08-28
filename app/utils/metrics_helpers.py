@@ -291,6 +291,12 @@ def compute_receptions_vector(masterdata, receptions, added_dluo_df=None):
 #
 # PIVOT ON ITEMS
 #
+def set_pivot_df(values, index, columns=[]):
+    def _pivot(dataframe):
+        pivot = pd.pivot_table(dataframe, values=values, index=index, columns=columns, aggfunc='sum')
+        return pivot
+    return _pivot
+
 def pivot_on_items(mongo_data_df):
     values=["linetotal", "revient"]
     index=["itemcode", "itemname" ,"categorie"]

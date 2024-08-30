@@ -157,9 +157,9 @@ def computeImportSales(cardcode):
 
   neutral_format=formats["neutral"]
   warning_format=formats["warning"]
-  worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'AND($Sheet1.$L2=0, $Sheet1.$J2>0)', "format":neutral_format})
+  worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'AND($Sheet1.$N2=0, $Sheet1.$L2>0)', "format":neutral_format})
   #worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'$Sheet1.$J2=0', "format": bad_format})
-  worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'$Sheet1.$J2<$Sheet1.$L2', "format":warning_format})
+  worksheet.conditional_format("B2:B{}".format(r), {"type":'formula', "criteria":'$Sheet1.$L2<$Sheet1.$N2', "format":warning_format})
 
   receipts_po = dao.getGoodReceiptsPo(cardcode, periodInWeeks)
   if len(receipts_po)>0:

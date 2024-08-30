@@ -291,9 +291,9 @@ def compute_receptions_vector(masterdata, receptions, added_dluo_df=None):
 #
 # PIVOT ON ITEMS
 #
-def set_pivot_df(values, index, columns=[]):
+def set_pivot_df(values, index, columns=[],fill_value=0):
     def _pivot(dataframe):
-        pivot = pd.pivot_table(dataframe, values=values, index=index, columns=columns, aggfunc='sum')
+        pivot = pd.pivot_table(dataframe, values=values, index=index, columns=columns, aggfunc='sum',fill_value=fill_value)
         return pivot
     return _pivot
 

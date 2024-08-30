@@ -191,7 +191,15 @@ class CacheDao:
             return {}
 
     def getImportSales(self, cardcode, periodInWeeks):
-        display_cols=["itemname", "sellitem", "categorie", "vente", "achat", "revient","marge_theo", "marge_sap", "onhand", "onorder"]
+        def get_reception_data(itemcode, itemcodes_received, filtered_receptions):
+            values=["docdate", "quantity"]
+            if itemcode not in itemcodes_received:
+                return [[""]*len(values)]
+            else:
+                received = filtered_receptions.query("itemcode=='{}'".format(itemcode)).loc[:,values]
+                return [[d.to_pydatetime(), q] for d,q in received.values.tolist()]
+    
+        display_cols=["itemname", "sellitem", "categorie", "vente", "achat", "revient","marge_theo", "marge_sap", "rdate", "rqty", "onhand", "onorder"]
         cols=["quantity", "ca_ht", "linegrossbuypr"]
         df=self.find_query(sales_within_period(cardcode, periodInWeeks))
         # Force value 0.0 into discprcnt column
@@ -202,10 +210,11 @@ class CacheDao:
         df["ca_ht"] = df["linetotal"] #*(1-df["discprcnt"]/100)
         df["c"] = [getMondayOf(row.docdate).strftime(self.DATE_FMT) for row in df.itertuples()]
         df["linegrossbuypr"] = df["quantity"]*df["grossbuypr"]
+        pivot_table = set_pivot_df(cols, ["itemcode"],['c'])
         pvtable = pd.pivot_table(df, index=["itemcode"],
                     values=cols,
                     columns=['c'],
-                    aggfunc=[np.sum],
+                    aggfunc="sum",
                     fill_value=0)
         ddff = pd.DataFrame(pvtable.to_records())
         all_columns = ddff.head().columns.values.tolist()
@@ -223,10 +232,16 @@ class CacheDao:
         joinedData["marge_theo"]=(joinedData["vente"]-joinedData["revient"])/joinedData["revient"]
         joinedData["marge_sap"]=(joinedData["total_ca_ht"]-joinedData["total_linegrossbuypr"])/joinedData["total_linegrossbuypr"]
 
-        outputData = joinedData.loc[:,displayed]
-        renamed = {k:"".join(k[1:-1].split(",")[1:]).replace("'","").strip() for k in list(itertools.chain.from_iterable(column_groups[:2]))}
+        toDate   = dt.datetime.today()
+        two_yeas_in_days = 2*365
+        origin_reception=(toDate - dt.timedelta(days=two_yeas_in_days)).replace(month=1, day=1).strftime(self.DATE_FMT)
+        receptions = dao.getReceptionsMarchandise(origin_reception).loc[:,["itemcode", "docdate", "quantity"]].sort_values(by=["docdate"], ascending=False)
+        received_itemcodes = set(receptions.itemcode.values)
+        last_receptions = pd.DataFrame([[code]+get_reception_data(code, received_itemcodes, receptions)[0] for code in joinedData.index], columns=["itemcode", "rdate", "rqty"])
+        outputData = joinedData.join(last_receptions.set_index("itemcode"), on="itemcode").loc[:,displayed]
+        #renamed = {k:"".join(k[1:-1].split(",")[1:]).replace("'","").strip() for k in list(itertools.chain.from_iterable(column_groups[:2]))}
+        renamed = {k:" ".join(eval(k))  for k in list(itertools.chain.from_iterable(column_groups[:2]))}
         outputData.rename(columns=renamed, inplace=True)
-
         return outputData
 
     def compute_sales_for_itemcodes_betweenDates(self, itemcodes, fromDate, toDate):

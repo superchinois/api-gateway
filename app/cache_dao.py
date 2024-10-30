@@ -324,6 +324,7 @@ class CacheDao:
         result_df["freq"]=result_df.loc[:,date_labels].gt(0).sum(axis=1)
         past_months=dates[1:]
         result_df["moy"]=result_df.loc[:,past_months].replace(0, np.nan).mean(axis=1, skipna=True)
+        result_df["moy"].replace(0, np.nan, inplace=True)
         result_df["remplis."]=(result_df[dates[0]]-result_df["moy"])/result_df["moy"]
         result_df=result_df.sort_values(["freq","total"], ascending=[0,0])
 
